@@ -10,6 +10,7 @@
         "./assets/*"
       ]
     },
+    // "types"를 지정하면 @types/* 자동 포함이 꺼짐 — 전역 타입이 필요한 @types 패키지는 이 배열에 추가할 것 (jest는 jest-expo 전역 인식용)
     "types": [
       "jest"
     ]
