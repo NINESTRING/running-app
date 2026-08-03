@@ -3,17 +3,19 @@ import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { RouteMap } from '../../src/components/RouteMap';
 import {
-  formatDistanceKm,
+  formatDistance,
   formatDuration,
   formatPace,
   paceSecPerKm,
 } from '../../src/lib/geo';
 import { getRun } from '../../src/services/runs';
+import { useSettingsStore } from '../../src/stores/settingsStore';
 import type { RoutePoint, RunRecord } from '../../src/types/run';
 
 export default function RunDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [run, setRun] = useState<RunRecord | null>(null);
+  const unit = useSettingsStore((s) => s.unit);
 
   useEffect(() => {
     let cancelled = false;
@@ -52,7 +54,7 @@ export default function RunDetailScreen() {
           {new Date(run.startedAt).toLocaleString('ko-KR')}
         </Text>
         <Text>
-          {formatDistanceKm(run.distanceM)}km ·{' '}
+          {formatDistance(run.distanceM, unit)}{unit} ·{' '}
           {formatDuration(run.durationSec * 1000)} ·{' '}
           {formatPace(paceSecPerKm(run.distanceM, run.durationSec * 1000))}
         </Text>

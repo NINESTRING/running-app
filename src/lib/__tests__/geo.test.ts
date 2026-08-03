@@ -1,4 +1,5 @@
 import {
+  formatDistance,
   formatDistanceKm,
   formatDuration,
   formatPace,
@@ -59,5 +60,19 @@ describe('formatDuration', () => {
 describe('formatDistanceKm', () => {
   it('미터를 km 소수 2자리로', () => {
     expect(formatDistanceKm(5234)).toBe('5.23');
+  });
+});
+
+describe('formatDistance', () => {
+  it('km 단위는 소수 2자리 km', () => {
+    expect(formatDistance(5000, 'km')).toBe('5.00');
+  });
+
+  it('mi 단위는 마일로 변환한 소수 2자리', () => {
+    expect(formatDistance(5000, 'mi')).toBe('3.11');
+  });
+
+  it('km 단위는 반올림된 소수 2자리', () => {
+    expect(formatDistance(5234, 'km')).toBe('5.23');
   });
 });

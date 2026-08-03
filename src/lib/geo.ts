@@ -41,3 +41,10 @@ export function formatDuration(ms: number): string {
 export function formatDistanceKm(m: number): string {
   return (m / 1000).toFixed(2);
 }
+
+const MILES_PER_KM = 0.621371;
+
+export function formatDistance(m: number, unit: 'km' | 'mi'): string {
+  const km = m / 1000;
+  return unit === 'mi' ? (km * MILES_PER_KM).toFixed(2) : km.toFixed(2);
+}

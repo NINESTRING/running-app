@@ -1,5 +1,5 @@
 -- PostGIS 확장 (Supabase 대시보드 Extensions에서도 활성화 가능)
-create extension if not exists postgis;
+create extension if not exists postgis with schema extensions;
 
 create table public.runs (
   id uuid primary key default gen_random_uuid(),

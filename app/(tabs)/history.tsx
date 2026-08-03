@@ -1,14 +1,16 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
-import { formatDistanceKm, formatDuration } from '../../src/lib/geo';
+import { formatDistance, formatDuration } from '../../src/lib/geo';
 import { listRuns } from '../../src/services/runs';
 import { supabase } from '../../src/services/supabase';
+import { useSettingsStore } from '../../src/stores/settingsStore';
 import type { RunRecord } from '../../src/types/run';
 
 export default function HistoryScreen() {
   const router = useRouter();
   const [runs, setRuns] = useState<RunRecord[]>([]);
+  const unit = useSettingsStore((s) => s.unit);
 
   useFocusEffect(
     useCallback(() => {
@@ -53,7 +55,7 @@ export default function HistoryScreen() {
             {new Date(item.startedAt).toLocaleDateString('ko-KR')}
           </Text>
           <Text style={styles.dim}>
-            {formatDistanceKm(item.distanceM)}km ·{' '}
+            {formatDistance(item.distanceM, unit)}{unit} ·{' '}
             {formatDuration(item.durationSec * 1000)}
           </Text>
         </Pressable>
