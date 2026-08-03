@@ -10,7 +10,13 @@ export default function StatsScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      listRuns().then((runs) => setData(weeklyDistances(runs, new Date())));
+      let cancelled = false;
+      listRuns().then((runs) => {
+        if (!cancelled) setData(weeklyDistances(runs, new Date()));
+      });
+      return () => {
+        cancelled = true;
+      };
     }, [])
   );
 

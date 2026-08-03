@@ -7,6 +7,7 @@ export function weeklyDistances(
   runs: Pick<RunRecord, 'startedAt' | 'distanceM'>[],
   now: Date
 ): { day: string; km: number }[] {
+  // 주 경계는 프로세스 로컬 타임존 기준 — 기기에서는 사용자 로컬 주로 동작, 테스트는 TZ=Asia/Seoul로 고정 실행
   const weekStart = new Date(now);
   weekStart.setHours(0, 0, 0, 0);
   const dow = (weekStart.getDay() + 6) % 7; // 월=0
