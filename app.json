@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "rn-scaffold",
-    "slug": "rn-scaffold",
+    "name": "runningapp",
+    "slug": "runningapp",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "rnscaffold",
+    "scheme": "runningapp",
     "userInterfaceStyle": "automatic",
     "ios": {
       "icon": "./assets/expo.icon"
