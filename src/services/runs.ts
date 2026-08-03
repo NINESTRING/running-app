@@ -38,13 +38,17 @@ export async function saveRun(
   if (!supabase) {
     return { ok: false, error: 'Supabase가 설정되지 않았습니다 (.env 확인)' };
   }
-  const { error } = await supabase.from('runs').insert({
-    started_at: new Date(run.startedAt).toISOString(),
-    duration_sec: run.durationSec,
-    distance_m: run.distanceM,
-    route: pointsToEwkt(run.points),
-  });
-  return error ? { ok: false, error: error.message } : { ok: true };
+  try {
+    const { error } = await supabase.from('runs').insert({
+      started_at: new Date(run.startedAt).toISOString(),
+      duration_sec: run.durationSec,
+      distance_m: run.distanceM,
+      route: pointsToEwkt(run.points),
+    });
+    return error ? { ok: false, error: error.message } : { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
 }
 
 export async function listRuns(): Promise<RunRecord[]> {
