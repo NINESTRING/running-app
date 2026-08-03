@@ -1,3 +1,4 @@
+import '../src/services/location';
 import { Stack } from 'expo-router';
 
 export default function RootLayout() {
