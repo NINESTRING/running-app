@@ -1,46 +1,43 @@
-# Welcome to your Expo app 👋
+# 런닝앱
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+React Native + Expo 기반 GPS 러닝 트래커.
 
-## Get started
+## 스택
 
-1. Install dependencies
+Expo (TypeScript) · Expo Router · expo-location + expo-task-manager ·
+react-native-maps · Zustand · victory-native · Supabase (PostGIS) · EAS Build
 
-   ```bash
-   npm install
-   ```
+## 시작하기
 
-2. Start the app
+```bash
+npm install
+npx expo start
+```
 
-   ```bash
-   npx expo start
-   ```
+- 기본 UI 확인은 Expo Go로 가능.
+- **백그라운드 위치 추적은 dev build 필요**: `eas build --profile development --platform ios` (또는 android) 후 설치.
+- Android에서 지도를 보려면 Google Maps API 키가 필요 (`app.json` → `android.config.googleMaps.apiKey`).
 
-In the output, you'll find options to open the app in a
+## Supabase 연결
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+1. [supabase.com](https://supabase.com)에서 프로젝트 생성
+2. SQL Editor에서 `supabase/migrations/0001_init.sql` 실행
+3. `.env.example`을 `.env`로 복사하고 URL/anon key 입력
+4. 재시작: `npx expo start --clear`
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+주의: `runs` 테이블은 RLS로 보호되므로 실제 저장은 로그인(추후 구현) 후 가능.
 
-## Other setup steps
+## 테스트
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+```bash
+npm test           # jest 유닛 테스트
+npx tsc --noEmit   # 타입 체크
+```
 
-## Learn more
+## 구조
 
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+- `app/` — Expo Router 화면 (탭: 홈/기록/통계/설정, `run/[id]` 상세)
+- `src/lib/` — 순수 로직 (거리·페이스·주간 통계)
+- `src/stores/` — Zustand 스토어
+- `src/services/` — 위치 추적, Supabase
+- `supabase/migrations/` — DB 스키마
