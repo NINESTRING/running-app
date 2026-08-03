@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { RouteMap } from '../../src/components/RouteMap';
 import {
-  formatDistanceKm,
+  formatDistance,
   formatDuration,
   formatPace,
   paceSecPerKm,
@@ -20,6 +20,7 @@ import {
   stopTracking,
 } from '../../src/services/location';
 import { saveRun } from '../../src/services/runs';
+import { useSettingsStore } from '../../src/stores/settingsStore';
 import { elapsedMs, useRunStore } from '../../src/stores/runStore';
 
 export default function HomeScreen() {
@@ -28,6 +29,7 @@ export default function HomeScreen() {
   const distanceM = useRunStore((s) => s.distanceM);
   const accumulatedMs = useRunStore((s) => s.accumulatedMs);
   const segmentStartedAt = useRunStore((s) => s.segmentStartedAt);
+  const unit = useSettingsStore((s) => s.unit);
   const [now, setNow] = useState(() => Date.now());
   const [permissionDenied, setPermissionDenied] = useState(false);
 
@@ -46,9 +48,17 @@ export default function HomeScreen() {
       return;
     }
     setPermissionDenied(false);
+    try {
+      await startTracking();
+    } catch (e) {
+      Alert.alert(
+        '추적을 시작하지 못했습니다',
+        e instanceof Error ? e.message : String(e)
+      );
+      return;
+    }
     useRunStore.getState().start(Date.now());
     setNow(Date.now());
-    await startTracking();
   };
 
   const onPause = () => useRunStore.getState().pause(Date.now());
@@ -59,21 +69,40 @@ export default function HomeScreen() {
   };
 
   const onStop = async () => {
-    await stopTracking();
+    if (useRunStore.getState().status === 'running') {
+      useRunStore.getState().pause(Date.now());
+    }
+    try {
+      await stopTracking();
+    } catch {
+      // 추적 중지 실패해도 이후 기록 저장 로직은 계속 진행
+    }
     const s = useRunStore.getState();
     const stoppedAt = Date.now();
-    const durationSec = Math.round(elapsedMs(s, s.status === 'running' ? stoppedAt : 0) / 1000);
+    const durationSec = Math.round(elapsedMs(s, 0) / 1000);
     const result = await saveRun({
       startedAt: s.startedAt ?? stoppedAt,
       durationSec,
       distanceM: s.distanceM,
       points: s.points,
     });
-    Alert.alert(
-      result.ok ? '저장 완료' : '저장하지 못했습니다',
-      result.ok ? '기록 탭에서 확인하세요.' : result.error
-    );
-    useRunStore.getState().reset();
+    if (result.ok) {
+      Alert.alert('저장 완료', '기록 탭에서 확인하세요.');
+      useRunStore.getState().reset();
+    } else {
+      Alert.alert(
+        '저장하지 못했습니다',
+        `${result.error}\n기록을 버릴까요?`,
+        [
+          { text: '유지', style: 'cancel' },
+          {
+            text: '버리기',
+            style: 'destructive',
+            onPress: () => useRunStore.getState().reset(),
+          },
+        ]
+      );
+    }
   };
 
   return (
@@ -88,7 +117,7 @@ export default function HomeScreen() {
           </Pressable>
         )}
         <View style={styles.metrics}>
-          <Metric label="거리(km)" value={formatDistanceKm(distanceM)} />
+          <Metric label={`거리(${unit})`} value={formatDistance(distanceM, unit)} />
           <Metric label="시간" value={formatDuration(elapsed)} />
           <Metric label="페이스" value={formatPace(paceSecPerKm(distanceM, elapsed))} />
         </View>

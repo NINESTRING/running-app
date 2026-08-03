@@ -53,21 +53,29 @@ export async function saveRun(
 
 export async function listRuns(): Promise<RunRecord[]> {
   if (!supabase) return [];
-  const { data, error } = await supabase
-    .from('runs_with_geojson')
-    .select('*')
-    .order('started_at', { ascending: false });
-  if (error || !data) return [];
-  return (data as RunRow[]).map(rowToRunRecord);
+  try {
+    const { data, error } = await supabase
+      .from('runs_with_geojson')
+      .select('*')
+      .order('started_at', { ascending: false });
+    if (error || !data) return [];
+    return (data as RunRow[]).map(rowToRunRecord);
+  } catch {
+    return [];
+  }
 }
 
 export async function getRun(id: string): Promise<RunRecord | null> {
   if (!supabase) return null;
-  const { data, error } = await supabase
-    .from('runs_with_geojson')
-    .select('*')
-    .eq('id', id)
-    .single();
-  if (error || !data) return null;
-  return rowToRunRecord(data as RunRow);
+  try {
+    const { data, error } = await supabase
+      .from('runs_with_geojson')
+      .select('*')
+      .eq('id', id)
+      .single();
+    if (error || !data) return null;
+    return rowToRunRecord(data as RunRow);
+  } catch {
+    return null;
+  }
 }
