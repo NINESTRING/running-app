@@ -12,7 +12,13 @@ export default function HistoryScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      listRuns().then(setRuns);
+      let cancelled = false;
+      listRuns().then((r) => {
+        if (!cancelled) setRuns(r);
+      });
+      return () => {
+        cancelled = true;
+      };
     }, [])
   );
 

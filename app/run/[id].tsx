@@ -16,7 +16,15 @@ export default function RunDetailScreen() {
   const [run, setRun] = useState<RunRecord | null>(null);
 
   useEffect(() => {
-    if (id) getRun(id).then(setRun);
+    let cancelled = false;
+    if (id) {
+      getRun(id).then((r) => {
+        if (!cancelled) setRun(r);
+      });
+    }
+    return () => {
+      cancelled = true;
+    };
   }, [id]);
 
   if (!run) {
