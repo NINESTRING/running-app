@@ -1,7 +1,7 @@
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { Bar, CartesianChart } from 'victory-native';
+import { WeeklyBarChart } from '../../src/components/WeeklyBarChart';
 import { weeklyDistances } from '../../src/lib/stats';
 import { listRuns } from '../../src/services/runs';
 
@@ -24,16 +24,7 @@ export default function StatsScreen() {
     <View style={styles.container}>
       <Text style={styles.title}>이번 주 거리 (km)</Text>
       <View style={styles.chart}>
-        <CartesianChart data={data} xKey="day" yKeys={['km']}>
-          {({ points, chartBounds }) => (
-            <Bar
-              points={points.km}
-              chartBounds={chartBounds}
-              color="#3b82f6"
-              roundedCorners={{ topLeft: 4, topRight: 4 }}
-            />
-          )}
-        </CartesianChart>
+        <WeeklyBarChart data={data} />
       </View>
       <View style={styles.labels}>
         {data.map((d) => (
