@@ -1,15 +1,18 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
-import { formatDistance, formatDuration } from '../../src/lib/geo';
-import { listRuns } from '../../src/services/runs';
-import { supabase } from '../../src/services/supabase';
-import { useSettingsStore } from '../../src/stores/settingsStore';
-import type { RunRecord } from '../../src/types/run';
+import { FlatList, Pressable, View } from 'react-native';
+import { Separator } from '@/components/ui/separator';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Text } from '@/components/ui/text';
+import { formatDistance, formatDuration } from '@/lib/geo';
+import { listRuns } from '@/services/runs';
+import { supabase } from '@/services/supabase';
+import { useSettingsStore } from '@/stores/settingsStore';
+import type { RunRecord } from '@/types/run';
 
 export default function HistoryScreen() {
   const router = useRouter();
-  const [runs, setRuns] = useState<RunRecord[]>([]);
+  const [runs, setRuns] = useState<RunRecord[] | null>(null);
   const unit = useSettingsStore((s) => s.unit);
 
   useFocusEffect(
@@ -26,35 +29,47 @@ export default function HistoryScreen() {
 
   if (!supabase) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.dim}>
+      <View className="flex-1 items-center justify-center bg-background p-6">
+        <Text className="text-center text-muted-foreground">
           Supabase가 설정되지 않았습니다.{'\n'}.env에 URL과 키를 넣어주세요.
         </Text>
       </View>
     );
   }
 
+  if (runs === null) {
+    return (
+      <View className="flex-1 gap-3 bg-background p-4">
+        <Skeleton className="h-16 w-full" />
+        <Skeleton className="h-16 w-full" />
+        <Skeleton className="h-16 w-full" />
+      </View>
+    );
+  }
+
   if (runs.length === 0) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.dim}>아직 러닝 기록이 없습니다.</Text>
+      <View className="flex-1 items-center justify-center bg-background p-6">
+        <Text className="text-center text-muted-foreground">아직 러닝 기록이 없습니다.</Text>
       </View>
     );
   }
 
   return (
     <FlatList
+      className="bg-background"
       data={runs}
       keyExtractor={(r) => r.id}
+      ItemSeparatorComponent={() => <Separator />}
       renderItem={({ item }) => (
         <Pressable
-          style={styles.row}
+          className="gap-1 p-4 active:bg-accent"
           onPress={() => router.push(`/run/${item.id}`)}
         >
-          <Text style={styles.rowTitle}>
+          <Text className="text-base font-semibold">
             {new Date(item.startedAt).toLocaleDateString('ko-KR')}
           </Text>
-          <Text style={styles.dim}>
+          <Text className="text-muted-foreground">
             {formatDistance(item.distanceM, unit)}{unit} ·{' '}
             {formatDuration(item.durationSec * 1000)}
           </Text>
@@ -63,15 +78,3 @@ export default function HistoryScreen() {
     />
   );
 }
-
-const styles = StyleSheet.create({
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
-  dim: { color: '#6b7280', textAlign: 'center' },
-  row: {
-    padding: 16,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e5e7eb',
-    gap: 4,
-  },
-  rowTitle: { fontSize: 16, fontWeight: '600' },
-});
