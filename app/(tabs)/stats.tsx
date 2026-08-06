@@ -1,9 +1,11 @@
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import { WeeklyBarChart } from '../../src/components/WeeklyBarChart';
-import { weeklyDistances } from '../../src/lib/stats';
-import { listRuns } from '../../src/services/runs';
+import { View } from 'react-native';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Text } from '@/components/ui/text';
+import { WeeklyBarChart } from '@/components/WeeklyBarChart';
+import { weeklyDistances } from '@/lib/stats';
+import { listRuns } from '@/services/runs';
 
 export default function StatsScreen() {
   const [data, setData] = useState(() => weeklyDistances([], new Date()));
@@ -21,26 +23,24 @@ export default function StatsScreen() {
   );
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>이번 주 거리 (km)</Text>
-      <View style={styles.chart}>
-        <WeeklyBarChart data={data} />
-      </View>
-      <View style={styles.labels}>
-        {data.map((d) => (
-          <Text key={d.day} style={styles.dayLabel}>
-            {d.day}
-          </Text>
-        ))}
-      </View>
+    <View className="flex-1 bg-background p-4">
+      <Card>
+        <CardHeader>
+          <CardTitle>이번 주 거리 (km)</CardTitle>
+        </CardHeader>
+        <CardContent className="gap-2">
+          <View className="h-60">
+            <WeeklyBarChart data={data} />
+          </View>
+          <View className="flex-row justify-around">
+            {data.map((d) => (
+              <Text key={d.day} className="text-xs text-muted-foreground">
+                {d.day}
+              </Text>
+            ))}
+          </View>
+        </CardContent>
+      </Card>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, gap: 8 },
-  title: { fontSize: 16, fontWeight: '600' },
-  chart: { height: 240 },
-  labels: { flexDirection: 'row', justifyContent: 'space-around' },
-  dayLabel: { fontSize: 12, color: '#6b7280' },
-});
