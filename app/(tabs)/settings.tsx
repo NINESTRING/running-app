@@ -18,10 +18,10 @@ export default function SettingsScreen() {
         }}
         className="justify-start"
       >
-        <ToggleGroupItem value="km">
+        <ToggleGroupItem value="km" isFirst>
           <Text>km</Text>
         </ToggleGroupItem>
-        <ToggleGroupItem value="mi">
+        <ToggleGroupItem value="mi" isLast>
           <Text>mi</Text>
         </ToggleGroupItem>
       </ToggleGroup>
