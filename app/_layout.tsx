@@ -1,9 +1,8 @@
 import '../src/global.css';
 import '../src/services/location';
 
-import { ThemeProvider } from 'expo-router';
 import { PortalHost } from '@rn-primitives/portal';
-import { Stack } from 'expo-router';
+import { Stack, ThemeProvider } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useColorScheme } from 'nativewind';
 import { NAV_THEME } from '@/lib/theme';
