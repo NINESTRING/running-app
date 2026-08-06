@@ -1,16 +1,12 @@
 import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import { RouteMap } from '../../src/components/RouteMap';
-import {
-  formatDistance,
-  formatDuration,
-  formatPace,
-  paceSecPerKm,
-} from '../../src/lib/geo';
-import { getRun } from '../../src/services/runs';
-import { useSettingsStore } from '../../src/stores/settingsStore';
-import type { RoutePoint, RunRecord } from '../../src/types/run';
+import { View } from 'react-native';
+import { Text } from '@/components/ui/text';
+import { RouteMap } from '@/components/RouteMap';
+import { formatDistance, formatDuration, formatPace, paceSecPerKm } from '@/lib/geo';
+import { getRun } from '@/services/runs';
+import { useSettingsStore } from '@/stores/settingsStore';
+import type { RoutePoint, RunRecord } from '@/types/run';
 
 export default function RunDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -31,8 +27,8 @@ export default function RunDetailScreen() {
 
   if (!run) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.dim}>기록을 불러오는 중이거나 찾을 수 없습니다.</Text>
+      <View className="flex-1 items-center justify-center bg-background">
+        <Text className="text-muted-foreground">기록을 불러오는 중이거나 찾을 수 없습니다.</Text>
       </View>
     );
   }
@@ -45,15 +41,15 @@ export default function RunDetailScreen() {
     })) ?? [];
 
   return (
-    <View style={{ flex: 1 }}>
-      <View style={{ flex: 1 }}>
+    <View className="flex-1 bg-background">
+      <View className="flex-1">
         <RouteMap points={points} />
       </View>
-      <View style={styles.summary}>
-        <Text style={styles.title}>
+      <View className="gap-2 p-4">
+        <Text className="text-base font-semibold">
           {new Date(run.startedAt).toLocaleString('ko-KR')}
         </Text>
-        <Text>
+        <Text className="text-muted-foreground">
           {formatDistance(run.distanceM, unit)}{unit} ·{' '}
           {formatDuration(run.durationSec * 1000)} ·{' '}
           {formatPace(paceSecPerKm(run.distanceM, run.durationSec * 1000))}
@@ -62,10 +58,3 @@ export default function RunDetailScreen() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  dim: { color: '#6b7280' },
-  summary: { padding: 16, gap: 8 },
-  title: { fontSize: 16, fontWeight: '600' },
-});
