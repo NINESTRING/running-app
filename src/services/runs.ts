@@ -1,3 +1,4 @@
+import type { Tables } from '../types/database.types';
 import type { RoutePoint, RunRecord } from '../types/run';
 import { supabase } from './supabase';
 
@@ -14,15 +15,19 @@ export function pointsToEwkt(points: RoutePoint[]): string | null {
   return `SRID=4326;LINESTRING(${coords})`;
 }
 
-interface RunRow {
-  id: string;
-  started_at: string;
-  duration_sec: number;
-  distance_m: number;
-  route_geojson: string | null;
-}
+export type RunRow = Tables<'runs_with_geojson'>;
 
-export function rowToRunRecord(row: RunRow): RunRecord {
+// 뷰 컬럼은 원본 테이블이 NOT NULL이어도 타입상 전부 nullable로 생성됨 →
+// 필수 값이 빠진 행은 null로 걸러낸다.
+export function rowToRunRecord(row: RunRow): RunRecord | null {
+  if (
+    row.id === null ||
+    row.started_at === null ||
+    row.duration_sec === null ||
+    row.distance_m === null
+  ) {
+    return null;
+  }
   return {
     id: row.id,
     startedAt: row.started_at,
@@ -59,7 +64,9 @@ export async function listRuns(): Promise<RunRecord[]> {
       .select('*')
       .order('started_at', { ascending: false });
     if (error || !data) return [];
-    return (data as RunRow[]).map(rowToRunRecord);
+    return data
+      .map(rowToRunRecord)
+      .filter((r): r is RunRecord => r !== null);
   } catch {
     return [];
   }
@@ -74,7 +81,7 @@ export async function getRun(id: string): Promise<RunRecord | null> {
       .eq('id', id)
       .single();
     if (error || !data) return null;
-    return rowToRunRecord(data as RunRow);
+    return rowToRunRecord(data);
   } catch {
     return null;
   }

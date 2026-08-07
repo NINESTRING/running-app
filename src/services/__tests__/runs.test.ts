@@ -20,27 +20,35 @@ describe('pointsToEwkt', () => {
 });
 
 describe('rowToRunRecord', () => {
+  const baseRow = {
+    id: 'abc',
+    user_id: 'user-1',
+    started_at: '2026-08-03T01:00:00Z',
+    duration_sec: 600,
+    distance_m: 2000,
+    route_geojson: null,
+    created_at: '2026-08-03T01:10:00Z',
+  };
+
   it('DB 행을 RunRecord로 변환 (route_geojson 문자열 파싱)', () => {
     const rec = rowToRunRecord({
-      id: 'abc',
-      started_at: '2026-08-03T01:00:00Z',
-      duration_sec: 600,
-      distance_m: 2000,
-      route_geojson: '{"type":"LineString","coordinates":[[127,37.5],[127.1,37.6]]}',
+      ...baseRow,
+      route_geojson:
+        '{"type":"LineString","coordinates":[[127,37.5],[127.1,37.6]]}',
     });
-    expect(rec.id).toBe('abc');
-    expect(rec.durationSec).toBe(600);
-    expect(rec.routeGeojson?.coordinates).toHaveLength(2);
+    expect(rec?.id).toBe('abc');
+    expect(rec?.durationSec).toBe(600);
+    expect(rec?.routeGeojson?.coordinates).toHaveLength(2);
   });
 
   it('route_geojson이 null이면 routeGeojson도 null', () => {
-    const rec = rowToRunRecord({
-      id: 'abc',
-      started_at: '2026-08-03T01:00:00Z',
-      duration_sec: 600,
-      distance_m: 2000,
-      route_geojson: null,
-    });
-    expect(rec.routeGeojson).toBeNull();
+    const rec = rowToRunRecord(baseRow);
+    expect(rec).not.toBeNull();
+    expect(rec?.routeGeojson).toBeNull();
+  });
+
+  it('필수 컬럼이 null인 행은 null 반환', () => {
+    expect(rowToRunRecord({ ...baseRow, id: null })).toBeNull();
+    expect(rowToRunRecord({ ...baseRow, started_at: null })).toBeNull();
   });
 });

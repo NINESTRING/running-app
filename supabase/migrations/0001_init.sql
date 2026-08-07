@@ -7,7 +7,7 @@ create table public.runs (
   started_at timestamptz not null,
   duration_sec integer not null check (duration_sec >= 0),
   distance_m double precision not null check (distance_m >= 0),
-  route geography (linestring, 4326),
+  route extensions.geography (linestring, 4326),
   created_at timestamptz not null default now()
 );
 
@@ -34,6 +34,6 @@ select
   started_at,
   duration_sec,
   distance_m,
-  st_asgeojson(route) as route_geojson,
+  extensions.st_asgeojson(route) as route_geojson,
   created_at
 from public.runs;
