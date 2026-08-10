@@ -96,3 +96,16 @@ export async function signInWithGoogle(): Promise<GoogleAuthResult> {
   if (!data.url) return { status: 'error', error: 'OAuth URL을 받지 못했습니다' };
   return completeOAuthInBrowser(data.url);
 }
+
+// 로그아웃 후 즉시 새 익명 세션을 만든다.
+// 앱 전체가 "항상 로그인돼 있음"을 전제하므로 로그아웃 상태를 따로 두지 않는다.
+export async function signOut(): Promise<{ ok: boolean; error?: string }> {
+  if (!supabase) {
+    return { ok: false, error: 'Supabase가 설정되지 않았습니다 (.env 확인)' };
+  }
+  const { error: signOutError } = await supabase.auth.signOut();
+  if (signOutError) return { ok: false, error: signOutError.message };
+
+  const { error } = await supabase.auth.signInAnonymously();
+  return error ? { ok: false, error: error.message } : { ok: true };
+}

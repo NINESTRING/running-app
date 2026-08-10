@@ -1,4 +1,4 @@
-import { ensureSignedIn, linkGoogleAccount, parseAuthCallbackParams, signInWithGoogle } from '../auth';
+import { ensureSignedIn, linkGoogleAccount, parseAuthCallbackParams, signInWithGoogle, signOut } from '../auth';
 import { supabase } from '../supabase';
 import * as WebBrowser from 'expo-web-browser';
 
@@ -219,5 +219,34 @@ describe('signInWithGoogle', () => {
     const result = await signInWithGoogle();
 
     expect(result).toEqual({ status: 'cancelled' });
+  });
+});
+
+describe('signOut', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('로그아웃 후 즉시 새 익명 세션을 만든다', async () => {
+    auth.signOut.mockResolvedValue({ error: null });
+    auth.signInAnonymously.mockResolvedValue({
+      data: { session: { user: { id: 'anon-2' } } },
+      error: null,
+    });
+
+    const result = await signOut();
+
+    expect(result).toEqual({ ok: true });
+    expect(auth.signOut).toHaveBeenCalledTimes(1);
+    expect(auth.signInAnonymously).toHaveBeenCalledTimes(1);
+  });
+
+  it('로그아웃이 실패하면 익명 로그인을 시도하지 않는다', async () => {
+    auth.signOut.mockResolvedValue({ error: { message: 'network error' } });
+
+    const result = await signOut();
+
+    expect(result).toEqual({ ok: false, error: 'network error' });
+    expect(auth.signInAnonymously).not.toHaveBeenCalled();
   });
 });
