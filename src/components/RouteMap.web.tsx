@@ -1,13 +1,16 @@
+import type { Ref } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import type { RoutePoint } from '../types/run';
+import type { RouteMapHandle } from './RouteMap';
 
 interface Props {
   points: RoutePoint[];
   showsUserLocation?: boolean;
+  ref?: Ref<RouteMapHandle>;
 }
 
 // react-native-maps는 웹을 지원하지 않으므로(codegenNativeComponent 없음)
-// 웹 번들에서는 이 플레이스홀더가 대신 사용된다.
+// 웹 번들에서는 이 플레이스홀더가 대신 사용된다. ref는 연결하지 않는다.
 export function RouteMap({ points }: Props) {
   return (
     <View style={[StyleSheet.absoluteFill, styles.container]}>
