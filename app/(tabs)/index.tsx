@@ -73,9 +73,8 @@ export default function HomeScreen() {
   };
 
   const onStop = async () => {
-    if (useRunStore.getState().status === 'running') {
-      useRunStore.getState().pause(Date.now());
-    }
+    // saving 전환에 실패하면 이미 저장이 진행 중 → 중복 저장 방지
+    if (!useRunStore.getState().beginSave(Date.now())) return;
     try {
       await stopTracking();
     } catch {
@@ -94,6 +93,7 @@ export default function HomeScreen() {
       useRunStore.getState().reset();
       setDialog({ type: 'saved' });
     } else {
+      useRunStore.getState().failSave();
       setDialog({ type: 'saveError', message: result.error ?? '알 수 없는 오류' });
     }
   };
@@ -140,6 +140,11 @@ export default function HomeScreen() {
                   <Text>종료</Text>
                 </Button>
               </>
+            )}
+            {status === 'saving' && (
+              <Button size="lg" variant="destructive" disabled>
+                <Text>저장 중…</Text>
+              </Button>
             )}
           </View>
         </CardContent>

@@ -65,6 +65,57 @@ describe('runStore', () => {
     expect(useRunStore.getState().status).toBe('idle');
   });
 
+  it('running에서 beginSave는 경과 시간 누적 후 saving 전환, true 반환', () => {
+    const store = useRunStore.getState();
+    store.start(0);
+    expect(useRunStore.getState().beginSave(5000)).toBe(true);
+    const s = useRunStore.getState();
+    expect(s.status).toBe('saving');
+    expect(elapsedMs(s, 9000)).toBe(5000); // saving 중엔 시간이 늘지 않음
+  });
+
+  it('paused에서 beginSave는 saving 전환, true 반환', () => {
+    const store = useRunStore.getState();
+    store.start(0);
+    store.pause(5000);
+    expect(useRunStore.getState().beginSave(7000)).toBe(true);
+    expect(useRunStore.getState().status).toBe('saving');
+  });
+
+  it('saving 중 beginSave 재호출은 false 반환 (중복 저장 가드)', () => {
+    const store = useRunStore.getState();
+    store.start(0);
+    store.beginSave(5000);
+    expect(useRunStore.getState().beginSave(5100)).toBe(false);
+    expect(useRunStore.getState().status).toBe('saving');
+  });
+
+  it('idle에서 beginSave는 false 반환', () => {
+    expect(useRunStore.getState().beginSave(100)).toBe(false);
+    expect(useRunStore.getState().status).toBe('idle');
+  });
+
+  it('failSave는 saving에서 paused로 복귀 (기록 유지)', () => {
+    const store = useRunStore.getState();
+    store.start(0);
+    store.addPoint(P1);
+    store.beginSave(5000);
+    useRunStore.getState().failSave();
+    const s = useRunStore.getState();
+    expect(s.status).toBe('paused');
+    expect(s.points).toHaveLength(1);
+    expect(elapsedMs(s, 9000)).toBe(5000);
+  });
+
+  it('saving 중 addPoint 무시', () => {
+    const store = useRunStore.getState();
+    store.start(0);
+    store.addPoint(P1);
+    store.beginSave(5000);
+    useRunStore.getState().addPoint(P2);
+    expect(useRunStore.getState().points).toHaveLength(1);
+  });
+
   it('reset은 idle로 되돌림', () => {
     const store = useRunStore.getState();
     store.start(0);

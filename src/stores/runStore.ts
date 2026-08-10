@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { haversineM } from '../lib/geo';
 import type { RoutePoint } from '../types/run';
 
-export type RunStatus = 'idle' | 'running' | 'paused';
+export type RunStatus = 'idle' | 'running' | 'paused' | 'saving';
 
 export interface RunState {
   status: RunStatus;
@@ -15,6 +15,8 @@ export interface RunState {
   pause: (now: number) => void;
   resume: (now: number) => void;
   addPoint: (p: RoutePoint) => void;
+  beginSave: (now: number) => boolean;
+  failSave: () => void;
   reset: () => void;
 }
 
@@ -54,6 +56,29 @@ export const useRunStore = create<RunState>((set, get) => ({
     const last = points[points.length - 1];
     const added = last ? haversineM(last, p) : 0;
     set({ points: [...points, p], distanceM: distanceM + added });
+  },
+
+  // 저장이 진행되는 동안 재진입(종료 버튼 중복 탭)을 막는 단방향 게이트.
+  beginSave: (now) => {
+    const { status, segmentStartedAt, accumulatedMs } = get();
+    if (status === 'running' && segmentStartedAt !== null) {
+      set({
+        status: 'saving',
+        accumulatedMs: accumulatedMs + (now - segmentStartedAt),
+        segmentStartedAt: null,
+      });
+      return true;
+    }
+    if (status === 'paused') {
+      set({ status: 'saving' });
+      return true;
+    }
+    return false;
+  },
+
+  failSave: () => {
+    if (get().status !== 'saving') return;
+    set({ status: 'paused' });
   },
 
   reset: () => set({ ...initial }),
