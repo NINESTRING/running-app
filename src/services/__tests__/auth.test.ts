@@ -237,7 +237,7 @@ describe('signOut', () => {
     const result = await signOut();
 
     expect(result).toEqual({ ok: true });
-    expect(auth.signOut).toHaveBeenCalledTimes(1);
+    expect(auth.signOut).toHaveBeenCalledWith({ scope: 'local' });
     expect(auth.signInAnonymously).toHaveBeenCalledTimes(1);
   });
 

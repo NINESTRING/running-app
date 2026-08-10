@@ -103,7 +103,8 @@ export async function signOut(): Promise<{ ok: boolean; error?: string }> {
   if (!supabase) {
     return { ok: false, error: 'Supabase가 설정되지 않았습니다 (.env 확인)' };
   }
-  const { error: signOutError } = await supabase.auth.signOut();
+  // 이 기기 세션만 종료한다 — 다른 기기에 연결된 같은 계정의 세션은 유지.
+  const { error: signOutError } = await supabase.auth.signOut({ scope: 'local' });
   if (signOutError) return { ok: false, error: signOutError.message };
 
   const { error } = await supabase.auth.signInAnonymously();
