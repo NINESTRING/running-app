@@ -1,4 +1,4 @@
-import { ensureSignedIn, linkGoogleAccount, parseAuthCallbackParams } from '../auth';
+import { ensureSignedIn, linkGoogleAccount, parseAuthCallbackParams, signInWithGoogle } from '../auth';
 import { supabase } from '../supabase';
 import * as WebBrowser from 'expo-web-browser';
 
@@ -178,5 +178,46 @@ describe('linkGoogleAccount', () => {
       status: 'error',
       error: 'Manual linking is disabled',
     });
+  });
+});
+
+describe('signInWithGoogle', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('브라우저 인증 성공 시 세션을 설정하고 success를 반환한다', async () => {
+    auth.signInWithOAuth.mockResolvedValue({
+      data: { url: 'https://accounts.google.com/oauth' },
+      error: null,
+    });
+    openAuthSessionAsync.mockResolvedValue({
+      type: 'success',
+      url: 'runningapp://google-auth#access_token=at-2&refresh_token=rt-2',
+    });
+    auth.setSession.mockResolvedValue({ data: {}, error: null });
+
+    const result = await signInWithGoogle();
+
+    expect(result).toEqual({ status: 'success' });
+    expect(auth.signInWithOAuth).toHaveBeenCalledWith({
+      provider: 'google',
+      options: {
+        redirectTo: 'runningapp://google-auth',
+        skipBrowserRedirect: true,
+      },
+    });
+  });
+
+  it('유저가 브라우저 시트를 닫으면 cancelled를 반환한다', async () => {
+    auth.signInWithOAuth.mockResolvedValue({
+      data: { url: 'https://accounts.google.com/oauth' },
+      error: null,
+    });
+    openAuthSessionAsync.mockResolvedValue({ type: 'dismiss' });
+
+    const result = await signInWithGoogle();
+
+    expect(result).toEqual({ status: 'cancelled' });
   });
 });

@@ -82,3 +82,17 @@ export async function linkGoogleAccount(): Promise<GoogleAuthResult> {
   if (!data.url) return { status: 'error', error: 'OAuth URL을 받지 못했습니다' };
   return completeOAuthInBrowser(data.url);
 }
+
+// 구글 계정으로 로그인한다 (기존 계정 전환·재로그인용). 현재 세션은 새 세션으로 대체된다.
+export async function signInWithGoogle(): Promise<GoogleAuthResult> {
+  if (!supabase) {
+    return { status: 'error', error: 'Supabase가 설정되지 않았습니다 (.env 확인)' };
+  }
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo: GOOGLE_AUTH_REDIRECT_URL, skipBrowserRedirect: true },
+  });
+  if (error) return { status: 'error', error: error.message };
+  if (!data.url) return { status: 'error', error: 'OAuth URL을 받지 못했습니다' };
+  return completeOAuthInBrowser(data.url);
+}
