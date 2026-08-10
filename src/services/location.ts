@@ -43,3 +43,29 @@ export async function stopTracking(): Promise<void> {
     await Location.stopLocationUpdatesAsync(RUN_TRACKING_TASK);
   }
 }
+
+export type MyLocationResult =
+  | { status: 'granted'; coords: { latitude: number; longitude: number } }
+  | { status: 'denied' }
+  | { status: 'unavailable' };
+
+/** 포그라운드 권한을 확보한 뒤 현재 좌표를 1회 조회한다. */
+export async function getMyLocation(): Promise<MyLocationResult> {
+  const fg = await Location.requestForegroundPermissionsAsync();
+  if (fg.status !== 'granted') return { status: 'denied' };
+  try {
+    const pos = await Location.getCurrentPositionAsync({
+      accuracy: Location.Accuracy.Balanced,
+    });
+    return {
+      status: 'granted',
+      coords: {
+        latitude: pos.coords.latitude,
+        longitude: pos.coords.longitude,
+      },
+    };
+  } catch {
+    // 위치 서비스 꺼짐 등 — 호출부에서 기본 지역을 유지한다
+    return { status: 'unavailable' };
+  }
+}
