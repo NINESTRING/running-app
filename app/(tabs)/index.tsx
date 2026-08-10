@@ -1,5 +1,7 @@
-import { useEffect, useState } from 'react';
-import { Linking, Pressable, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Linking, Platform, Pressable, View } from 'react-native';
+import { LocateFixed } from 'lucide-react-native';
+import { Icon } from '@/components/ui/icon';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -13,9 +15,9 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
-import { RouteMap } from '@/components/RouteMap';
+import { RouteMap, type RouteMapHandle } from '@/components/RouteMap';
 import { formatDistance, formatDuration, formatPace, paceSecPerKm } from '@/lib/geo';
-import { requestPermissions, startTracking, stopTracking } from '@/services/location';
+import { getMyLocation, requestPermissions, startTracking, stopTracking } from '@/services/location';
 import { saveRun } from '@/services/runs';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { elapsedMs, useRunStore } from '@/stores/runStore';
@@ -36,6 +38,32 @@ export default function HomeScreen() {
   const [now, setNow] = useState(() => Date.now());
   const [permissionDenied, setPermissionDenied] = useState(false);
   const [dialog, setDialog] = useState<DialogState>(null);
+
+  const mapRef = useRef<RouteMapHandle>(null);
+  const locatingRef = useRef(false);
+
+  // fromButton: 버튼 탭이면 거부 시 설정 안내를 띄운다 (마운트 시에는 조용히 무시)
+  const goToMyLocation = async (fromButton: boolean) => {
+    if (locatingRef.current) return;
+    locatingRef.current = true;
+    try {
+      const result = await getMyLocation();
+      if (result.status === 'granted') {
+        setPermissionDenied(false);
+        mapRef.current?.animateTo(result.coords);
+      } else if (result.status === 'denied' && fromButton) {
+        setPermissionDenied(true);
+      }
+    } finally {
+      locatingRef.current = false;
+    }
+  };
+
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    void goToMyLocation(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (status !== 'running') return;
@@ -100,55 +128,68 @@ export default function HomeScreen() {
 
   return (
     <View className="flex-1">
-      <RouteMap points={points} showsUserLocation />
-      <Card className="absolute inset-x-4 bottom-6">
-        <CardContent className="gap-3 p-4">
-          {permissionDenied && (
-            <Pressable onPress={() => Linking.openSettings()}>
-              <Text className="text-center text-destructive">
-                위치 권한이 필요합니다. 눌러서 설정 열기
-              </Text>
+      <RouteMap points={points} showsUserLocation ref={mapRef} />
+      <View className="absolute inset-x-4 bottom-6 gap-3">
+        {Platform.OS !== 'web' && (
+          <View className="items-end">
+            <Pressable
+              accessibilityLabel="내 위치로 이동"
+              onPress={() => goToMyLocation(true)}
+              className="h-11 w-11 items-center justify-center rounded-full bg-card shadow-lg active:opacity-70"
+            >
+              <Icon as={LocateFixed} size={20} />
             </Pressable>
-          )}
-          <View className="flex-row justify-around">
-            <Metric label={`거리(${unit})`} value={formatDistance(distanceM, unit)} />
-            <Metric label="시간" value={formatDuration(elapsed)} />
-            <Metric label="페이스" value={formatPace(paceSecPerKm(distanceM, elapsed))} />
           </View>
-          <View className="flex-row justify-center gap-3">
-            {status === 'idle' && (
-              <Button size="lg" onPress={onStart}>
-                <Text>시작</Text>
-              </Button>
+        )}
+        <Card>
+          <CardContent className="gap-3 p-4">
+            {permissionDenied && (
+              <Pressable onPress={() => Linking.openSettings()}>
+                <Text className="text-center text-destructive">
+                  위치 권한이 필요합니다. 눌러서 설정 열기
+                </Text>
+              </Pressable>
             )}
-            {status === 'running' && (
-              <>
-                <Button size="lg" variant="secondary" onPress={onPause}>
-                  <Text>일시정지</Text>
+            <View className="flex-row justify-around">
+              <Metric label={`거리(${unit})`} value={formatDistance(distanceM, unit)} />
+              <Metric label="시간" value={formatDuration(elapsed)} />
+              <Metric label="페이스" value={formatPace(paceSecPerKm(distanceM, elapsed))} />
+            </View>
+            <View className="flex-row justify-center gap-3">
+              {status === 'idle' && (
+                <Button size="lg" onPress={onStart}>
+                  <Text>시작</Text>
                 </Button>
-                <Button size="lg" variant="destructive" onPress={onStop}>
-                  <Text>종료</Text>
+              )}
+              {status === 'running' && (
+                <>
+                  <Button size="lg" variant="secondary" onPress={onPause}>
+                    <Text>일시정지</Text>
+                  </Button>
+                  <Button size="lg" variant="destructive" onPress={onStop}>
+                    <Text>종료</Text>
+                  </Button>
+                </>
+              )}
+              {status === 'paused' && (
+                <>
+                  <Button size="lg" onPress={onResume}>
+                    <Text>재개</Text>
+                  </Button>
+                  <Button size="lg" variant="destructive" onPress={onStop}>
+                    <Text>종료</Text>
+                  </Button>
+                </>
+              )}
+              {status === 'saving' && (
+                <Button size="lg" variant="destructive" disabled>
+                  <Text>저장 중…</Text>
                 </Button>
-              </>
-            )}
-            {status === 'paused' && (
-              <>
-                <Button size="lg" onPress={onResume}>
-                  <Text>재개</Text>
-                </Button>
-                <Button size="lg" variant="destructive" onPress={onStop}>
-                  <Text>종료</Text>
-                </Button>
-              </>
-            )}
-            {status === 'saving' && (
-              <Button size="lg" variant="destructive" disabled>
-                <Text>저장 중…</Text>
-              </Button>
-            )}
-          </View>
-        </CardContent>
-      </Card>
+              )}
+            </View>
+          </CardContent>
+        </Card>
+      </View>
 
       <AlertDialog
         open={dialog !== null}
