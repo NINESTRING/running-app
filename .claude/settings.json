@@ -7,7 +7,15 @@
       "Bash(git commit *)",
       "Read(//Users/ninestring/.claude/plugins/cache/claude-plugins-official/superpowers/6.2.0/skills/subagent-driven-development/**)",
       "Read(//Users/ninestring/work/runningapp.v1/src/components/**)",
-      "Read(//Users/ninestring/work/runningapp.v1/app/\\\\\\(tabs\\\\\\)/**)"
+      "Read(//Users/ninestring/work/runningapp.v1/app/\\\\\\(tabs\\\\\\)/**)",
+      "mcp__plugin_supabase_supabase__execute_sql",
+      "Bash(sed -n '/render\\\\|1000,/p')",
+      "Bash(awk '/  render\\\\\\(\\\\\\)/,/^}/' /Users/ninestring/work/runningapp.v1/node_modules/react-native-maps/src/MapView.tsx)",
+      "Bash(grep -n \"REMAP_MAPVIEW_REGION_PROP\" /Users/ninestring/work/runningapp.v1/node_modules/react-native-maps/ios/AirMaps/RNMapsMapView.mm | head -3; sed -n '/#define REMAP_MAPVIEW_REGION_PROP/,/^$/p' /Users/ninestring/work/runningapp.v1/node_modules/react-native-maps/ios/AirMaps/RNMapsMapView.mm | head -30)",
+      "Bash(npx jest *)"
+    ],
+    "additionalDirectories": [
+      "/Users/ninestring/work/runningapp.v1/node_modules/react-native-maps/ios/AirMaps"
     ]
   }
 }
