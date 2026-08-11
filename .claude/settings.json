@@ -4,7 +4,10 @@
       "Bash(npm view *)",
       "Bash(git add *)",
       "Bash(npm run *)",
-      "Read(//Users/ninestring/.claude/plugins/cache/claude-plugins-official/superpowers/6.2.0/skills/subagent-driven-development/**)"
+      "Bash(git commit *)",
+      "Read(//Users/ninestring/.claude/plugins/cache/claude-plugins-official/superpowers/6.2.0/skills/subagent-driven-development/**)",
+      "Read(//Users/ninestring/work/runningapp.v1/src/components/**)",
+      "Read(//Users/ninestring/work/runningapp.v1/app/\\\\\\(tabs\\\\\\)/**)"
     ]
   }
 }

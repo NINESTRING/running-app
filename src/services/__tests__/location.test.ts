@@ -134,6 +134,7 @@ describe('getInitialCoords', () => {
     const result = await getInitialCoords();
 
     expect(result).toEqual({ latitude: 37.5663, longitude: 126.9779 });
+    expect(requestForeground).not.toHaveBeenCalled();
   });
 
   it('권한이 없으면 null을 반환하고 캐시 위치를 조회하지 않는다', async () => {
