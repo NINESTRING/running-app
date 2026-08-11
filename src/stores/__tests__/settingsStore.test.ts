@@ -49,4 +49,16 @@ describe('settingsStore', () => {
     expect(useSettingsStore.getState().unit).toBe('mi');
     expect(useSettingsStore.getState().theme).toBe('dark');
   });
+
+  test('손상된 JSON이 저장되어 있어도 하이드레이션이 실패하지 않고 기본값으로 완료된다', async () => {
+    await AsyncStorage.setItem('settings', 'not-json');
+
+    await expect(useSettingsStore.persist.rehydrate()).resolves.not.toThrow();
+
+    // reject를 삼키기만 하고 hasHydrated를 세우지 않으면 앱이 영구 대기 상태에 빠지므로
+    // 실제로 하이드레이션이 "완료" 상태가 되었는지까지 확인한다
+    expect(useSettingsStore.persist.hasHydrated()).toBe(true);
+    expect(useSettingsStore.getState().unit).toBe('km');
+    expect(useSettingsStore.getState().theme).toBe('system');
+  });
 });

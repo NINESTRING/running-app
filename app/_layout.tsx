@@ -18,8 +18,17 @@ export default function RootLayout() {
   const [hydrated, setHydrated] = useState(useSettingsStore.persist.hasHydrated());
 
   useEffect(() => {
-    const unsubscribe = useSettingsStore.persist.onFinishHydration(() => setHydrated(true));
-    return unsubscribe;
+    // 하이드레이션이 커밋과 이펙트 플러시 사이에 끝나면 onFinishHydration이 재발화되지
+    // 않아 영원히 대기하게 되므로, 이펙트 실행 시점에 이미 끝났는지 다시 확인한다
+    const applyThemeAndFinish = () => {
+      nativewindColorScheme.set(useSettingsStore.getState().theme);
+      setHydrated(true);
+    };
+    if (useSettingsStore.persist.hasHydrated()) {
+      applyThemeAndFinish();
+      return;
+    }
+    return useSettingsStore.persist.onFinishHydration(applyThemeAndFinish);
   }, []);
 
   useEffect(() => {
