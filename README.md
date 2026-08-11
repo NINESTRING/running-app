@@ -13,6 +13,7 @@ react-native-maps · Zustand · victory-native · Supabase (PostGIS) · EAS Buil
 npm install
 npx expo start
 npx expo run:ios
+npx expo run:ios --device
 ```
 
 - 기본 UI 확인은 Expo Go로 가능.
@@ -51,3 +52,4 @@ npx tsc --noEmit   # 타입 체크
 2. `app_versions` 테이블에 새 행을 추가한다 (마이그레이션 파일 또는 Supabase 대시보드).
    - `version`: app.json과 동일한 semver 문자열
    - `notes`: 변경 사항 (줄바꿈으로 항목 구분)
+   - 새 행의 `released_at`이 항상 최신이 되도록 버전 순서대로 등록한다 (배지 로직이 이 순서에 의존)

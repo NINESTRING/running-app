@@ -11,7 +11,13 @@ export default function ChangelogScreen() {
   const [versions, setVersions] = useState<AppVersionRow[] | null>(null);
 
   useEffect(() => {
-    fetchVersionHistory().then(setVersions);
+    let cancelled = false;
+    fetchVersionHistory().then((result) => {
+      if (!cancelled) setVersions(result);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   if (versions === null) {

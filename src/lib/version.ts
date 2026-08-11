@@ -2,6 +2,7 @@ import * as Application from 'expo-application';
 import Constants from 'expo-constants';
 
 // "1.2.3" 형태의 semver 문자열 비교: a<b → -1, a===b → 0, a>b → 1
+// 프리릴리스 태그("1.0.0-beta.1")는 지원하지 않음 — 릴리스 절차상 x.y.z만 사용
 export function compareSemver(a: string, b: string): number {
   const pa = a.split('.').map((n) => parseInt(n, 10) || 0);
   const pb = b.split('.').map((n) => parseInt(n, 10) || 0);
