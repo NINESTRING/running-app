@@ -82,3 +82,23 @@ export function myLocationAction(result: MyLocationResult, fromButton: boolean):
   if (result.status === 'denied' && fromButton) return { kind: 'showDenied' };
   return { kind: 'ignore' };
 }
+
+/**
+ * 지도 첫 렌더용 초기 좌표. 프롬프트 없이, 권한이 이미 있을 때만
+ * 캐시된 마지막 위치를 즉시 반환한다. 실패는 모두 null (기본 지역 폴백).
+ */
+export async function getInitialCoords(): Promise<{
+  latitude: number;
+  longitude: number;
+} | null> {
+  try {
+    const fg = await Location.getForegroundPermissionsAsync();
+    if (fg.status !== 'granted') return null;
+    const pos = await Location.getLastKnownPositionAsync();
+    if (!pos) return null;
+    return { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
+  } catch (e) {
+    console.warn('[location] getInitialCoords 실패', e);
+    return null;
+  }
+}

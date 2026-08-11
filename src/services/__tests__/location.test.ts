@@ -1,5 +1,10 @@
 import * as Location from 'expo-location';
-import { getMyLocation, myLocationAction, type MyLocationResult } from '../location';
+import {
+  getInitialCoords,
+  getMyLocation,
+  myLocationAction,
+  type MyLocationResult,
+} from '../location';
 
 // location.ts는 모듈 로드 시 defineTask를 실행하므로 expo-task-manager도 목 처리
 jest.mock('expo-task-manager', () => ({
@@ -13,11 +18,15 @@ jest.mock('expo-location', () => ({
   startLocationUpdatesAsync: jest.fn(),
   stopLocationUpdatesAsync: jest.fn(),
   hasStartedLocationUpdatesAsync: jest.fn(),
+  getForegroundPermissionsAsync: jest.fn(),
+  getLastKnownPositionAsync: jest.fn(),
   Accuracy: { Balanced: 3, BestForNavigation: 6 },
 }));
 
 const requestForeground = Location.requestForegroundPermissionsAsync as jest.Mock;
 const getCurrentPosition = Location.getCurrentPositionAsync as jest.Mock;
+const getForeground = Location.getForegroundPermissionsAsync as jest.Mock;
+const getLastKnown = Location.getLastKnownPositionAsync as jest.Mock;
 
 describe('getMyLocation', () => {
   let warnSpy: jest.SpyInstance;
@@ -101,5 +110,56 @@ describe('myLocationAction', () => {
   it('unavailable이면 버튼 탭 여부와 무관하게 ignore를 반환한다', () => {
     expect(myLocationAction(unavailable, true)).toEqual({ kind: 'ignore' });
     expect(myLocationAction(unavailable, false)).toEqual({ kind: 'ignore' });
+  });
+});
+
+describe('getInitialCoords', () => {
+  let warnSpy: jest.SpyInstance;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    warnSpy.mockRestore();
+  });
+
+  it('권한이 있고 캐시 위치가 있으면 좌표를 반환한다', async () => {
+    getForeground.mockResolvedValue({ status: 'granted' });
+    getLastKnown.mockResolvedValue({
+      coords: { latitude: 37.5663, longitude: 126.9779 },
+    });
+
+    const result = await getInitialCoords();
+
+    expect(result).toEqual({ latitude: 37.5663, longitude: 126.9779 });
+  });
+
+  it('권한이 없으면 null을 반환하고 캐시 위치를 조회하지 않는다', async () => {
+    getForeground.mockResolvedValue({ status: 'denied' });
+
+    const result = await getInitialCoords();
+
+    expect(result).toBeNull();
+    expect(getLastKnown).not.toHaveBeenCalled();
+  });
+
+  it('캐시 위치가 없으면 null을 반환한다', async () => {
+    getForeground.mockResolvedValue({ status: 'granted' });
+    getLastKnown.mockResolvedValue(null);
+
+    const result = await getInitialCoords();
+
+    expect(result).toBeNull();
+  });
+
+  it('조회가 실패하면 null을 반환한다', async () => {
+    getForeground.mockResolvedValue({ status: 'granted' });
+    getLastKnown.mockRejectedValue(new Error('location unavailable'));
+
+    const result = await getInitialCoords();
+
+    expect(result).toBeNull();
   });
 });
