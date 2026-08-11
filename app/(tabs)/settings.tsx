@@ -1,6 +1,7 @@
 import { View } from 'react-native';
 
 import { AccountSection } from '@/components/AccountSection';
+import { AppInfoSection } from '@/components/AppInfoSection';
 import { Text } from '@/components/ui/text';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { useSettingsStore } from '@/stores/settingsStore';
@@ -30,6 +31,7 @@ export default function SettingsScreen() {
           </ToggleGroupItem>
         </ToggleGroup>
       </View>
+      <AppInfoSection />
     </View>
   );
 }
