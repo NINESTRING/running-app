@@ -14,7 +14,7 @@
           "location"
         ]
       },
-      "bundleIdentifier": "com.anonymous.runningapp"
+      "bundleIdentifier": "com.ninestring.runningapp"
     },
     "android": {
       "adaptiveIcon": {
