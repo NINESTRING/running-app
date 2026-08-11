@@ -12,6 +12,7 @@ react-native-maps · Zustand · victory-native · Supabase (PostGIS) · EAS Buil
 ```bash
 npm install
 npx expo start
+npx expo run:ios
 ```
 
 - 기본 UI 확인은 Expo Go로 가능.

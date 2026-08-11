@@ -51,9 +51,9 @@ export type MyLocationResult =
 
 /** 포그라운드 권한을 확보한 뒤 현재 좌표를 1회 조회한다. */
 export async function getMyLocation(): Promise<MyLocationResult> {
-  const fg = await Location.requestForegroundPermissionsAsync();
-  if (fg.status !== 'granted') return { status: 'denied' };
   try {
+    const fg = await Location.requestForegroundPermissionsAsync();
+    if (fg.status !== 'granted') return { status: 'denied' };
     const pos = await Location.getCurrentPositionAsync({
       accuracy: Location.Accuracy.Balanced,
     });
@@ -64,8 +64,21 @@ export async function getMyLocation(): Promise<MyLocationResult> {
         longitude: pos.coords.longitude,
       },
     };
-  } catch {
-    // 위치 서비스 꺼짐 등 — 호출부에서 기본 지역을 유지한다
+  } catch (e) {
+    // 위치 서비스 꺼짐·권한 요청 실패 등 — 호출부에서 기본 지역을 유지한다
+    console.warn('[location] getMyLocation 실패', e);
     return { status: 'unavailable' };
   }
+}
+
+export type MyLocationAction =
+  | { kind: 'animate'; coords: { latitude: number; longitude: number } }
+  | { kind: 'showDenied' }
+  | { kind: 'ignore' };
+
+/** getMyLocation 결과를 홈 화면 동작으로 변환한다. 마운트 시 거부는 조용히 무시, 버튼 탭 시 거부는 안내 표시. */
+export function myLocationAction(result: MyLocationResult, fromButton: boolean): MyLocationAction {
+  if (result.status === 'granted') return { kind: 'animate', coords: result.coords };
+  if (result.status === 'denied' && fromButton) return { kind: 'showDenied' };
+  return { kind: 'ignore' };
 }

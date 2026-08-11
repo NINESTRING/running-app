@@ -1,5 +1,5 @@
 import * as Location from 'expo-location';
-import { getMyLocation } from '../location';
+import { getMyLocation, myLocationAction, type MyLocationResult } from '../location';
 
 // location.ts는 모듈 로드 시 defineTask를 실행하므로 expo-task-manager도 목 처리
 jest.mock('expo-task-manager', () => ({
@@ -20,8 +20,15 @@ const requestForeground = Location.requestForegroundPermissionsAsync as jest.Moc
 const getCurrentPosition = Location.getCurrentPositionAsync as jest.Mock;
 
 describe('getMyLocation', () => {
+  let warnSpy: jest.SpyInstance;
+
   beforeEach(() => {
     jest.clearAllMocks();
+    warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    warnSpy.mockRestore();
   });
 
   it('권한이 허용되면 현재 좌표를 반환한다', async () => {
@@ -57,5 +64,42 @@ describe('getMyLocation', () => {
     const result = await getMyLocation();
 
     expect(result).toEqual({ status: 'unavailable' });
+  });
+
+  it('권한 요청 자체가 실패하면 unavailable을 반환한다', async () => {
+    requestForeground.mockRejectedValue(new Error('permission request in progress'));
+
+    const result = await getMyLocation();
+
+    expect(result).toEqual({ status: 'unavailable' });
+    expect(getCurrentPosition).not.toHaveBeenCalled();
+  });
+});
+
+describe('myLocationAction', () => {
+  const coords = { latitude: 37.5663, longitude: 126.9779 };
+  const granted: MyLocationResult = { status: 'granted', coords };
+  const denied: MyLocationResult = { status: 'denied' };
+  const unavailable: MyLocationResult = { status: 'unavailable' };
+
+  it('허용되면 마운트 시에도 animate를 반환한다', () => {
+    expect(myLocationAction(granted, false)).toEqual({ kind: 'animate', coords });
+  });
+
+  it('허용되면 버튼 탭 시에도 animate를 반환한다', () => {
+    expect(myLocationAction(granted, true)).toEqual({ kind: 'animate', coords });
+  });
+
+  it('거부되고 버튼 탭이면 showDenied를 반환한다', () => {
+    expect(myLocationAction(denied, true)).toEqual({ kind: 'showDenied' });
+  });
+
+  it('거부되고 마운트 시면 ignore를 반환한다', () => {
+    expect(myLocationAction(denied, false)).toEqual({ kind: 'ignore' });
+  });
+
+  it('unavailable이면 버튼 탭 여부와 무관하게 ignore를 반환한다', () => {
+    expect(myLocationAction(unavailable, true)).toEqual({ kind: 'ignore' });
+    expect(myLocationAction(unavailable, false)).toEqual({ kind: 'ignore' });
   });
 });

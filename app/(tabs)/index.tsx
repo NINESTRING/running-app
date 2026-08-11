@@ -17,7 +17,13 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { RouteMap, type RouteMapHandle } from '@/components/RouteMap';
 import { formatDistance, formatDuration, formatPace, paceSecPerKm } from '@/lib/geo';
-import { getMyLocation, requestPermissions, startTracking, stopTracking } from '@/services/location';
+import {
+  getMyLocation,
+  myLocationAction,
+  requestPermissions,
+  startTracking,
+  stopTracking,
+} from '@/services/location';
 import { saveRun } from '@/services/runs';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { elapsedMs, useRunStore } from '@/stores/runStore';
@@ -47,11 +53,11 @@ export default function HomeScreen() {
     if (locatingRef.current) return;
     locatingRef.current = true;
     try {
-      const result = await getMyLocation();
-      if (result.status === 'granted') {
+      const action = myLocationAction(await getMyLocation(), fromButton);
+      if (action.kind === 'animate') {
         setPermissionDenied(false);
-        mapRef.current?.animateTo(result.coords);
-      } else if (result.status === 'denied' && fromButton) {
+        mapRef.current?.animateTo(action.coords);
+      } else if (action.kind === 'showDenied') {
         setPermissionDenied(true);
       }
     } finally {
@@ -62,7 +68,6 @@ export default function HomeScreen() {
   useEffect(() => {
     if (Platform.OS === 'web') return;
     void goToMyLocation(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -129,13 +134,14 @@ export default function HomeScreen() {
   return (
     <View className="flex-1">
       <RouteMap points={points} showsUserLocation ref={mapRef} />
-      <View className="absolute inset-x-4 bottom-6 gap-3">
-        {Platform.OS !== 'web' && (
-          <View className="items-end">
+      <View className="absolute inset-x-4 bottom-6 gap-3" pointerEvents="box-none">
+        {Platform.OS !== 'web' && points.length === 0 && (
+          <View className="items-end" pointerEvents="box-none">
             <Pressable
               accessibilityLabel="내 위치로 이동"
+              accessibilityRole="button"
               onPress={() => goToMyLocation(true)}
-              className="h-11 w-11 items-center justify-center rounded-full bg-card shadow-lg active:opacity-70"
+              className="h-11 w-11 items-center justify-center rounded-full bg-card shadow-lg shadow-black/5 active:opacity-70"
             >
               <Icon as={LocateFixed} size={20} />
             </Pressable>
