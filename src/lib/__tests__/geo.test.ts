@@ -5,6 +5,7 @@ import {
   formatPace,
   haversineM,
   paceSecPerKm,
+  regionForRoute,
 } from '../geo';
 
 describe('haversineM', () => {
@@ -60,6 +61,49 @@ describe('formatDuration', () => {
 describe('formatDistanceKm', () => {
   it('미터를 km 소수 2자리로', () => {
     expect(formatDistanceKm(5234)).toBe('5.23');
+  });
+});
+
+describe('regionForRoute', () => {
+  it('빈 배열이면 null', () => {
+    expect(regionForRoute([])).toBeNull();
+  });
+
+  it('점 1개면 그 점을 중심으로 최소 델타 사용', () => {
+    const region = regionForRoute([{ latitude: 37.33, longitude: -122.03 }]);
+    expect(region).toEqual({
+      latitude: 37.33,
+      longitude: -122.03,
+      latitudeDelta: 0.01,
+      longitudeDelta: 0.01,
+    });
+  });
+
+  it('여러 점이면 경계 상자 중심을 가리킨다', () => {
+    const region = regionForRoute([
+      { latitude: 37.33, longitude: -122.03 },
+      { latitude: 37.35, longitude: -122.01 },
+    ]);
+    expect(region?.latitude).toBeCloseTo(37.34);
+    expect(region?.longitude).toBeCloseTo(-122.02);
+  });
+
+  it('델타는 경로 폭에 여유를 더한 값 (padding 1.4배)', () => {
+    const region = regionForRoute([
+      { latitude: 37.3, longitude: -122.1 },
+      { latitude: 37.4, longitude: -122.0 },
+    ]);
+    expect(region?.latitudeDelta).toBeCloseTo(0.1 * 1.4);
+    expect(region?.longitudeDelta).toBeCloseTo(0.1 * 1.4);
+  });
+
+  it('경로 폭이 아주 좁아도 최소 델타 0.01을 보장', () => {
+    const region = regionForRoute([
+      { latitude: 37.33, longitude: -122.03 },
+      { latitude: 37.3301, longitude: -122.0301 },
+    ]);
+    expect(region?.latitudeDelta).toBe(0.01);
+    expect(region?.longitudeDelta).toBe(0.01);
   });
 });
 

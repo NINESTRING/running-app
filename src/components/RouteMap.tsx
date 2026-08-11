@@ -1,6 +1,7 @@
 import { useImperativeHandle, useRef, type Ref } from 'react';
 import { StyleSheet } from 'react-native';
 import MapView, { Polyline } from 'react-native-maps';
+import { regionForRoute } from '../lib/geo';
 import type { RoutePoint } from '../types/run';
 
 export interface RouteMapHandle {
@@ -10,6 +11,8 @@ export interface RouteMapHandle {
 interface Props {
   points: RoutePoint[];
   showsUserLocation?: boolean;
+  /** true면 새 좌표가 들어올 때마다 마지막 지점을 따라간다 (라이브 추적용) */
+  follow?: boolean;
   initialCoords?: { latitude: number; longitude: number };
   ref?: Ref<RouteMapHandle>;
 }
@@ -21,9 +24,24 @@ const DEFAULT_REGION = {
   longitudeDelta: 0.01,
 };
 
-export function RouteMap({ points, showsUserLocation = false, initialCoords, ref }: Props) {
+export function RouteMap({
+  points,
+  showsUserLocation = false,
+  follow = false,
+  initialCoords,
+  ref,
+}: Props) {
   const mapRef = useRef<MapView>(null);
   const last = points[points.length - 1];
+
+  // 우선순위: 보여줄 경로 전체 > 사용자 위치 > 기본 지역.
+  // 지도는 로딩 시작 시점에 initialRegion을 다시 적용해 mount 때 넘긴 region을
+  // 덮어쓰므로(react-native-maps iOS), 정적 경로는 initialRegion으로 맞춰야 한다.
+  const initialRegion =
+    regionForRoute(points) ??
+    (initialCoords
+      ? { ...initialCoords, latitudeDelta: 0.01, longitudeDelta: 0.01 }
+      : DEFAULT_REGION);
 
   useImperativeHandle(ref, () => ({
     animateTo: (coord) =>
@@ -38,13 +56,9 @@ export function RouteMap({ points, showsUserLocation = false, initialCoords, ref
       ref={mapRef}
       style={StyleSheet.absoluteFill}
       showsUserLocation={showsUserLocation}
-      initialRegion={
-        initialCoords
-          ? { ...initialCoords, latitudeDelta: 0.01, longitudeDelta: 0.01 }
-          : DEFAULT_REGION
-      }
+      initialRegion={initialRegion}
       region={
-        last
+        follow && last
           ? {
               latitude: last.latitude,
               longitude: last.longitude,

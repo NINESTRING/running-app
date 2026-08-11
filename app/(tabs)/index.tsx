@@ -145,6 +145,7 @@ export default function HomeScreen() {
         <RouteMap
           points={points}
           showsUserLocation
+          follow
           ref={mapRef}
           initialCoords={initialCoords ?? undefined}
         />

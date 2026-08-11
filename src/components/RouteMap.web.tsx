@@ -6,6 +6,7 @@ import type { RouteMapHandle } from './RouteMap';
 interface Props {
   points: RoutePoint[];
   showsUserLocation?: boolean;
+  follow?: boolean;
   initialCoords?: { latitude: number; longitude: number };
   ref?: Ref<RouteMapHandle>;
 }

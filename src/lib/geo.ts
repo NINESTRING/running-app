@@ -12,6 +12,37 @@ export function haversineM(a: LatLng, b: LatLng): number {
   return 2 * EARTH_RADIUS_M * Math.asin(Math.sqrt(s));
 }
 
+export interface MapRegion {
+  latitude: number;
+  longitude: number;
+  latitudeDelta: number;
+  longitudeDelta: number;
+}
+
+const REGION_PADDING = 1.4;
+const MIN_REGION_DELTA = 0.01;
+
+// 경로 전체가 화면에 들어오는 지도 영역(경계 상자 + 여유)
+export function regionForRoute(points: LatLng[]): MapRegion | null {
+  if (points.length === 0) return null;
+  let minLat = Infinity;
+  let maxLat = -Infinity;
+  let minLon = Infinity;
+  let maxLon = -Infinity;
+  for (const p of points) {
+    minLat = Math.min(minLat, p.latitude);
+    maxLat = Math.max(maxLat, p.latitude);
+    minLon = Math.min(minLon, p.longitude);
+    maxLon = Math.max(maxLon, p.longitude);
+  }
+  return {
+    latitude: (minLat + maxLat) / 2,
+    longitude: (minLon + maxLon) / 2,
+    latitudeDelta: Math.max((maxLat - minLat) * REGION_PADDING, MIN_REGION_DELTA),
+    longitudeDelta: Math.max((maxLon - minLon) * REGION_PADDING, MIN_REGION_DELTA),
+  };
+}
+
 export function paceSecPerKm(distanceM: number, elapsedMs: number): number | null {
   if (distanceM < 10) return null;
   return elapsedMs / 1000 / (distanceM / 1000);
