@@ -42,3 +42,12 @@ npx tsc --noEmit   # 타입 체크
 - `src/stores/` — Zustand 스토어
 - `src/services/` — 위치 추적, Supabase
 - `supabase/migrations/` — DB 스키마
+
+## 릴리스 절차
+
+새 버전을 낼 때마다:
+
+1. `app.json`의 `expo.version`을 올린다.
+2. `app_versions` 테이블에 새 행을 추가한다 (마이그레이션 파일 또는 Supabase 대시보드).
+   - `version`: app.json과 동일한 semver 문자열
+   - `notes`: 변경 사항 (줄바꿈으로 항목 구분)

@@ -14,6 +14,24 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_versions: {
+        Row: {
+          notes: string
+          released_at: string
+          version: string
+        }
+        Insert: {
+          notes: string
+          released_at?: string
+          version: string
+        }
+        Update: {
+          notes?: string
+          released_at?: string
+          version?: string
+        }
+        Relationships: []
+      }
       runs: {
         Row: {
           created_at: string
