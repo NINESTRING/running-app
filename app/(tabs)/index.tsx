@@ -18,6 +18,7 @@ import { Text } from '@/components/ui/text';
 import { RouteMap, type RouteMapHandle } from '@/components/RouteMap';
 import { formatDistance, formatDuration, formatPace, paceSecPerKm } from '@/lib/geo';
 import {
+  getInitialCoords,
   getMyLocation,
   myLocationAction,
   requestPermissions,
@@ -44,6 +45,10 @@ export default function HomeScreen() {
   const [now, setNow] = useState(() => Date.now());
   const [permissionDenied, setPermissionDenied] = useState(false);
   const [dialog, setDialog] = useState<DialogState>(null);
+  // undefined: 초기 좌표 확정 전(지도 미렌더). null: 좌표 없음 → 기본 지역
+  const [initialCoords, setInitialCoords] = useState<
+    { latitude: number; longitude: number } | null | undefined
+  >(Platform.OS === 'web' ? null : undefined);
 
   const mapRef = useRef<RouteMapHandle>(null);
   const locatingRef = useRef(false);
@@ -67,7 +72,10 @@ export default function HomeScreen() {
 
   useEffect(() => {
     if (Platform.OS === 'web') return;
-    void goToMyLocation(false);
+    void (async () => {
+      setInitialCoords(await getInitialCoords());
+      await goToMyLocation(false);
+    })();
   }, []);
 
   useEffect(() => {
@@ -133,7 +141,14 @@ export default function HomeScreen() {
 
   return (
     <View className="flex-1">
-      <RouteMap points={points} showsUserLocation ref={mapRef} />
+      {initialCoords !== undefined && (
+        <RouteMap
+          points={points}
+          showsUserLocation
+          ref={mapRef}
+          initialCoords={initialCoords ?? undefined}
+        />
+      )}
       <View className="absolute inset-x-4 bottom-6 gap-3" pointerEvents="box-none">
         {Platform.OS !== 'web' && points.length === 0 && (
           <View className="items-end" pointerEvents="box-none">

@@ -10,6 +10,7 @@ export interface RouteMapHandle {
 interface Props {
   points: RoutePoint[];
   showsUserLocation?: boolean;
+  initialCoords?: { latitude: number; longitude: number };
   ref?: Ref<RouteMapHandle>;
 }
 
@@ -20,7 +21,7 @@ const DEFAULT_REGION = {
   longitudeDelta: 0.01,
 };
 
-export function RouteMap({ points, showsUserLocation = false, ref }: Props) {
+export function RouteMap({ points, showsUserLocation = false, initialCoords, ref }: Props) {
   const mapRef = useRef<MapView>(null);
   const last = points[points.length - 1];
 
@@ -37,7 +38,11 @@ export function RouteMap({ points, showsUserLocation = false, ref }: Props) {
       ref={mapRef}
       style={StyleSheet.absoluteFill}
       showsUserLocation={showsUserLocation}
-      initialRegion={DEFAULT_REGION}
+      initialRegion={
+        initialCoords
+          ? { ...initialCoords, latitudeDelta: 0.01, longitudeDelta: 0.01 }
+          : DEFAULT_REGION
+      }
       region={
         last
           ? {
