@@ -1,4 +1,52 @@
-import { pointsToEwkt, rowToRunRecord } from '../runs';
+import { parseRoutePoints, pointsToEwkt, rowToRunRecord, segmentsToJson } from '../runs';
+
+describe('segmentsToJson', () => {
+  const p = (t: number, alt: number | null = null) => ({
+    latitude: 37.5,
+    longitude: 127.0,
+    altitude: alt,
+    timestamp: t,
+  });
+
+  it('세그먼트별 [t, lat, lng, alt] 튜플 배열로 직렬화한다', () => {
+    const segments = [
+      { start: 0, end: 10_000 },
+      { start: 20_000, end: 30_000 },
+    ];
+    const json = segmentsToJson([p(1000, 12.5), p(9000, null), p(21_000, 13)], segments);
+    expect(json).toEqual([
+      [
+        [1000, 37.5, 127.0, 12.5],
+        [9000, 37.5, 127.0, null],
+      ],
+      [[21_000, 37.5, 127.0, 13]],
+    ]);
+  });
+
+  it('포인트가 2개 미만이면 null', () => {
+    expect(segmentsToJson([], [])).toBeNull();
+    expect(segmentsToJson([p(1000)], [{ start: 0, end: 10_000 }])).toBeNull();
+  });
+});
+
+describe('parseRoutePoints', () => {
+  it('직렬화 결과를 RoutePoint 그룹으로 되돌린다 (왕복)', () => {
+    const points = [
+      { latitude: 37.5, longitude: 127.0, altitude: 12.5, timestamp: 1000 },
+      { latitude: 37.6, longitude: 127.1, altitude: null, timestamp: 9000 },
+    ];
+    const json = segmentsToJson(points, [{ start: 0, end: 10_000 }]);
+    expect(parseRoutePoints(json)).toEqual([points]);
+  });
+
+  it('형식이 어긋나면 null', () => {
+    expect(parseRoutePoints(null)).toBeNull();
+    expect(parseRoutePoints('x')).toBeNull();
+    expect(parseRoutePoints([[[1, 2]]])).toBeNull(); // 튜플 길이 4 아님
+    expect(parseRoutePoints([[['a', 1, 2, 3]]])).toBeNull(); // t가 숫자 아님
+    expect(parseRoutePoints([])).toBeNull(); // 빈 그룹 배열
+  });
+});
 
 describe('pointsToEwkt', () => {
   it('경도 위도 순서의 EWKT LINESTRING 생성', () => {
@@ -63,5 +111,22 @@ describe('rowToRunRecord', () => {
     const rec = rowToRunRecord(baseRow);
     expect(rec).not.toBeNull();
     expect(rec?.steps).toBeNull();
+  });
+
+  it('route_points를 routePoints로 파싱한다', () => {
+    const rec = rowToRunRecord({
+      ...baseRow,
+      route_points: [[[1000, 37.5, 127.0, 12.5]]],
+    });
+    expect(rec?.routePoints).toEqual([
+      [{ latitude: 37.5, longitude: 127.0, altitude: 12.5, timestamp: 1000 }],
+    ]);
+  });
+
+  it('route_points가 null이거나 형식이 어긋나면 routePoints는 null (레코드는 유지)', () => {
+    expect(rowToRunRecord(baseRow)?.routePoints).toBeNull();
+    const rec = rowToRunRecord({ ...baseRow, route_points: 'broken' });
+    expect(rec).not.toBeNull();
+    expect(rec?.routePoints).toBeNull();
   });
 });

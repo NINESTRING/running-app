@@ -1,5 +1,6 @@
 import type { Tables } from '../types/database.types';
 import type { RoutePoint, RunRecord } from '../types/run';
+import { partitionPoints, type TimeRange } from '../lib/splits';
 import { supabase } from './supabase';
 
 export interface FinishedRun {
@@ -8,6 +9,49 @@ export interface FinishedRun {
   distanceM: number;
   steps: number | null; // null = 측정 안 됨
   points: RoutePoint[];
+  segments: TimeRange[]; // 완료된 러닝 세그먼트 — 일시정지 제외 구간 계산용
+}
+
+// [t, lat, lng, alt] 튜플의 세그먼트별 배열 (route_points JSONB 포맷)
+export type RoutePointsJson = [number, number, number, number | null][][];
+
+export function segmentsToJson(
+  points: RoutePoint[],
+  segments: TimeRange[]
+): RoutePointsJson | null {
+  if (points.length < 2) return null;
+  return partitionPoints(points, segments).map((g) =>
+    g.map((p): [number, number, number, number | null] => [
+      p.timestamp,
+      p.latitude,
+      p.longitude,
+      p.altitude,
+    ])
+  );
+}
+
+export function parseRoutePoints(json: unknown): RoutePoint[][] | null {
+  if (!Array.isArray(json) || json.length === 0) return null;
+  const groups: RoutePoint[][] = [];
+  for (const g of json) {
+    if (!Array.isArray(g)) return null;
+    const pts: RoutePoint[] = [];
+    for (const t of g) {
+      if (!Array.isArray(t) || t.length !== 4) return null;
+      const [ts, lat, lng, alt] = t;
+      if (
+        typeof ts !== 'number' ||
+        typeof lat !== 'number' ||
+        typeof lng !== 'number' ||
+        (typeof alt !== 'number' && alt !== null)
+      ) {
+        return null;
+      }
+      pts.push({ timestamp: ts, latitude: lat, longitude: lng, altitude: alt });
+    }
+    groups.push(pts);
+  }
+  return groups;
 }
 
 export function pointsToEwkt(points: RoutePoint[]): string | null {
@@ -36,6 +80,7 @@ export function rowToRunRecord(row: RunRow): RunRecord | null {
     distanceM: row.distance_m,
     steps: row.steps ?? null,
     routeGeojson: row.route_geojson ? JSON.parse(row.route_geojson) : null,
+    routePoints: parseRoutePoints(row.route_points),
   };
 }
 
@@ -52,6 +97,7 @@ export async function saveRun(
       distance_m: run.distanceM,
       steps: run.steps,
       route: pointsToEwkt(run.points),
+      route_points: segmentsToJson(run.points, run.segments),
     });
     return error ? { ok: false, error: error.message } : { ok: true };
   } catch (e) {

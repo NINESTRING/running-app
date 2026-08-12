@@ -145,6 +145,7 @@ export default function HomeScreen() {
       distanceM: s.distanceM,
       steps,
       points: s.points,
+      segments: s.segments,
     });
     if (result.ok) {
       useRunStore.getState().reset();
