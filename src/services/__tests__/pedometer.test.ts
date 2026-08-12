@@ -3,6 +3,7 @@ import { Pedometer } from 'expo-sensors';
 import { useRunStore } from '../../stores/runStore';
 import {
   backfillSteps,
+  requestPedometerPermissions,
   startStepCounting,
   stopStepCounting,
 } from '../pedometer';
@@ -22,6 +23,36 @@ beforeEach(() => {
   jest.clearAllMocks();
   stopStepCounting(); // 이전 테스트의 구독 정리
   useRunStore.getState().reset();
+});
+
+describe('requestPedometerPermissions', () => {
+  it('허용되면 true', async () => {
+    mocked.requestPermissionsAsync.mockResolvedValue({
+      granted: true,
+      status: 'granted',
+      canAskAgain: true,
+      expires: 'never',
+    } as never);
+
+    await expect(requestPedometerPermissions()).resolves.toBe(true);
+  });
+
+  it('거부되면 false', async () => {
+    mocked.requestPermissionsAsync.mockResolvedValue({
+      granted: false,
+      status: 'denied',
+      canAskAgain: true,
+      expires: 'never',
+    } as never);
+
+    await expect(requestPedometerPermissions()).resolves.toBe(false);
+  });
+
+  it('requestPermissionsAsync가 throw해도 조용히 false', async () => {
+    mocked.requestPermissionsAsync.mockRejectedValue(new Error('boom'));
+
+    await expect(requestPedometerPermissions()).resolves.toBe(false);
+  });
 });
 
 describe('startStepCounting / stopStepCounting', () => {
