@@ -1,4 +1,5 @@
 import type { RunRecord } from '../types/run';
+import { paceSecPerUnit } from './geo';
 
 const DAY_LABELS = ['월', '화', '수', '목', '금', '토', '일'];
 const DAY_MS = 86_400_000;
@@ -151,4 +152,51 @@ export function periodBuckets(
     if (idx >= 0) buckets[idx].distanceM += run.distanceM;
   }
   return buckets;
+}
+
+export interface PeriodSummary {
+  distanceM: number;
+  runCount: number;
+  durationSec: number;
+  /** 총거리/총시간 파생. 거리 10m 미만이면 null (paceSecPerUnit 규칙) */
+  avgPaceSecPerUnit: number | null;
+}
+
+export function periodSummary(
+  runs: Pick<RunRecord, 'startedAt' | 'distanceM' | 'durationSec'>[],
+  type: PeriodType,
+  anchor: Date,
+  unit: 'km' | 'mi'
+): PeriodSummary {
+  const inPeriod = runsInPeriod(runs, type, anchor);
+  let distanceM = 0;
+  let durationSec = 0;
+  for (const r of inPeriod) {
+    distanceM += r.distanceM;
+    durationSec += r.durationSec;
+  }
+  return {
+    distanceM,
+    runCount: inPeriod.length,
+    durationSec,
+    avgPaceSecPerUnit: paceSecPerUnit(distanceM, durationSec * 1000, unit),
+  };
+}
+
+/** 평균 점선 값 = 총거리 ÷ 경과 버킷 수(시작이 now 이하). 총거리 0이면 null */
+export function averageDistanceM(buckets: Bucket[], now: Date): number | null {
+  const total = buckets.reduce((s, b) => s + b.distanceM, 0);
+  if (total <= 0) return null;
+  const elapsed = buckets.filter((b) => b.start.getTime() <= now.getTime()).length;
+  return total / Math.max(elapsed, 1);
+}
+
+/** 차트 y축 최대 눈금: 1/2/5×10ⁿ으로 올림. 0 이하이면 10 */
+export function niceMax(value: number): number {
+  if (value <= 0) return 10;
+  const base = 10 ** Math.floor(Math.log10(value));
+  for (const m of [1, 2, 5]) {
+    if (value <= m * base) return m * base;
+  }
+  return 10 * base;
 }

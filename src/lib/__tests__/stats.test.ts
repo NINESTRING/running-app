@@ -1,4 +1,4 @@
-import { weeklyDistances, periodBuckets } from '../stats';
+import { weeklyDistances, periodBuckets, periodSummary, averageDistanceM, niceMax } from '../stats';
 
 // 2026-08-03은 월요일
 const NOW = new Date('2026-08-03T12:00:00+09:00');
@@ -97,5 +97,73 @@ describe('periodBuckets', () => {
     const result = periodBuckets([], 'all', WED);
     expect(result.map((b) => b.label)).toEqual(['2026']);
     expect(result[0].distanceM).toBe(0);
+  });
+});
+
+describe('periodSummary', () => {
+  it('기간 내 합계와 총거리/총시간 파생 평균 페이스', () => {
+    const runs = [
+      { startedAt: '2026-08-03T07:00:00+09:00', distanceM: 3000, durationSec: 900 },
+      { startedAt: '2026-08-04T07:00:00+09:00', distanceM: 2000, durationSec: 600 },
+      { startedAt: '2026-07-27T07:00:00+09:00', distanceM: 9000, durationSec: 999 }, // 지난주 제외
+    ];
+    const s = periodSummary(runs, 'week', WED, 'km');
+    expect(s.distanceM).toBe(5000);
+    expect(s.runCount).toBe(2);
+    expect(s.durationSec).toBe(1500);
+    expect(s.avgPaceSecPerUnit).toBeCloseTo(300); // 1500초 / 5km
+  });
+
+  it('mi 단위 평균 페이스', () => {
+    const runs = [
+      { startedAt: '2026-08-03T07:00:00+09:00', distanceM: 3000, durationSec: 900 },
+      { startedAt: '2026-08-04T07:00:00+09:00', distanceM: 2000, durationSec: 600 },
+    ];
+    const s = periodSummary(runs, 'week', WED, 'mi');
+    expect(s.avgPaceSecPerUnit).toBeCloseTo(482.8, 1); // 1500초 / (5000/1609.344)mi
+  });
+
+  it('빈 기간이면 0과 null', () => {
+    const s = periodSummary([], 'year', WED, 'km');
+    expect(s).toEqual({
+      distanceM: 0,
+      runCount: 0,
+      durationSec: 0,
+      avgPaceSecPerUnit: null,
+    });
+  });
+});
+
+describe('averageDistanceM', () => {
+  it('총거리 ÷ 경과 버킷 수 (현재가 속한 기간)', () => {
+    // 2026년 뷰, 오늘 8/5 → 1~8월 8개 버킷 경과. 345.6km / 8 = 43.2km
+    const runs = [
+      { startedAt: '2026-01-10T07:00:00+09:00', distanceM: 145_600 },
+      { startedAt: '2026-07-10T07:00:00+09:00', distanceM: 200_000 },
+    ];
+    const buckets = periodBuckets(runs, 'year', WED);
+    expect(averageDistanceM(buckets, WED)).toBeCloseTo(43_200);
+  });
+
+  it('과거 기간이면 전체 버킷 수로 나눔', () => {
+    const runs = [{ startedAt: '2025-03-10T07:00:00+09:00', distanceM: 120_000 }];
+    const buckets = periodBuckets(runs, 'year', new Date('2025-06-01T00:00:00+09:00'));
+    expect(averageDistanceM(buckets, WED)).toBeCloseTo(10_000); // 120km / 12개월
+  });
+
+  it('총거리 0이면 null', () => {
+    const buckets = periodBuckets([], 'year', WED);
+    expect(averageDistanceM(buckets, WED)).toBeNull();
+  });
+});
+
+describe('niceMax', () => {
+  it('1/2/5×10ⁿ 눈금으로 올림', () => {
+    expect(niceMax(0)).toBe(10);
+    expect(niceMax(7)).toBe(10);
+    expect(niceMax(43.2)).toBe(50);
+    expect(niceMax(128)).toBe(200);
+    expect(niceMax(100)).toBe(100);
+    expect(niceMax(3.4)).toBe(5);
   });
 });
