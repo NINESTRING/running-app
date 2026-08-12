@@ -128,3 +128,108 @@ describe('runStore', () => {
     expect(s.startedAt).toBeNull();
   });
 });
+
+describe('runStore 케이던스', () => {
+  it('beginStepTracking은 steps를 null에서 0으로 초기화', () => {
+    const store = useRunStore.getState();
+    store.start(0);
+    expect(useRunStore.getState().steps).toBeNull();
+    useRunStore.getState().beginStepTracking();
+    expect(useRunStore.getState().steps).toBe(0);
+  });
+
+  it('running 중 addStepReading은 델타를 누적하고 샘플을 push', () => {
+    const store = useRunStore.getState();
+    store.start(0);
+    store.beginStepTracking();
+    useRunStore.getState().addStepReading(10, 5000);
+    useRunStore.getState().addStepReading(25, 10_000);
+    const s = useRunStore.getState();
+    expect(s.steps).toBe(25);
+    expect(s.stepSamples).toEqual([
+      { timestamp: 5000, steps: 10 },
+      { timestamp: 10_000, steps: 25 },
+    ]);
+  });
+
+  it('60초보다 오래된 샘플은 prune', () => {
+    const store = useRunStore.getState();
+    store.start(0);
+    store.beginStepTracking();
+    useRunStore.getState().addStepReading(10, 5000);
+    useRunStore.getState().addStepReading(200, 70_000);
+    expect(useRunStore.getState().stepSamples).toEqual([
+      { timestamp: 70_000, steps: 200 },
+    ]);
+  });
+
+  it('paused 중 걸음은 버리되 lastStepReading은 갱신 (재개 후 소급 가산 방지)', () => {
+    const store = useRunStore.getState();
+    store.start(0);
+    store.beginStepTracking();
+    useRunStore.getState().addStepReading(10, 5000);
+    useRunStore.getState().pause(6000);
+    useRunStore.getState().addStepReading(50, 10_000); // 일시정지 중 40걸음
+    expect(useRunStore.getState().steps).toBe(10);
+    expect(useRunStore.getState().stepSamples).toEqual([]);
+    useRunStore.getState().resume(12_000);
+    useRunStore.getState().addStepReading(60, 15_000); // 재개 후 10걸음만 가산
+    expect(useRunStore.getState().steps).toBe(20);
+  });
+
+  it('누적치가 줄어든 이상 델타는 0으로 클램프', () => {
+    const store = useRunStore.getState();
+    store.start(0);
+    store.beginStepTracking();
+    useRunStore.getState().addStepReading(10, 5000);
+    useRunStore.getState().addStepReading(3, 10_000);
+    expect(useRunStore.getState().steps).toBe(10);
+  });
+
+  it('pause는 running 세그먼트를 기록하고 샘플을 비운다', () => {
+    const store = useRunStore.getState();
+    store.start(1000);
+    store.beginStepTracking();
+    useRunStore.getState().addStepReading(10, 3000);
+    useRunStore.getState().pause(5000);
+    const s = useRunStore.getState();
+    expect(s.segments).toEqual([{ start: 1000, end: 5000 }]);
+    expect(s.stepSamples).toEqual([]);
+  });
+
+  it('running에서 beginSave는 마지막 세그먼트까지 기록', () => {
+    const store = useRunStore.getState();
+    store.start(1000);
+    store.pause(5000);
+    useRunStore.getState().resume(8000);
+    useRunStore.getState().beginSave(12_000);
+    expect(useRunStore.getState().segments).toEqual([
+      { start: 1000, end: 5000 },
+      { start: 8000, end: 12_000 },
+    ]);
+  });
+
+  it('paused에서 beginSave는 세그먼트를 추가하지 않는다', () => {
+    const store = useRunStore.getState();
+    store.start(1000);
+    store.pause(5000);
+    useRunStore.getState().beginSave(7000);
+    expect(useRunStore.getState().segments).toEqual([
+      { start: 1000, end: 5000 },
+    ]);
+  });
+
+  it('start/reset은 케이던스 상태를 초기화', () => {
+    const store = useRunStore.getState();
+    store.start(0);
+    store.beginStepTracking();
+    useRunStore.getState().addStepReading(10, 5000);
+    useRunStore.getState().pause(6000);
+    useRunStore.getState().start(20_000);
+    const s = useRunStore.getState();
+    expect(s.steps).toBeNull();
+    expect(s.lastStepReading).toBe(0);
+    expect(s.stepSamples).toEqual([]);
+    expect(s.segments).toEqual([]);
+  });
+});

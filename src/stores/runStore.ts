@@ -1,8 +1,14 @@
 import { create } from 'zustand';
+import type { StepSample } from '../lib/cadence';
 import { haversineM } from '../lib/geo';
 import type { RoutePoint } from '../types/run';
 
 export type RunStatus = 'idle' | 'running' | 'paused' | 'saving';
+
+export interface RunSegment {
+  start: number; // epoch ms
+  end: number; // epoch ms
+}
 
 export interface RunState {
   status: RunStatus;
@@ -11,14 +17,22 @@ export interface RunState {
   startedAt: number | null;
   accumulatedMs: number;
   segmentStartedAt: number | null;
+  steps: number | null; // 일시정지 제외 누적 걸음. null = 측정 안 됨
+  lastStepReading: number; // pedometer 구독 누적치의 마지막 값 (델타 계산용)
+  stepSamples: StepSample[]; // 최근 60초 — 라이브 SPM용
+  segments: RunSegment[]; // 완료된 러닝 세그먼트 — iOS 백필용
   start: (now: number) => void;
   pause: (now: number) => void;
   resume: (now: number) => void;
   addPoint: (p: RoutePoint) => void;
+  beginStepTracking: () => void;
+  addStepReading: (cumulative: number, now: number) => void;
   beginSave: (now: number) => boolean;
   failSave: () => void;
   reset: () => void;
 }
+
+const SAMPLE_RETENTION_MS = 60_000;
 
 const initial = {
   status: 'idle' as RunStatus,
@@ -27,6 +41,10 @@ const initial = {
   startedAt: null as number | null,
   accumulatedMs: 0,
   segmentStartedAt: null as number | null,
+  steps: null as number | null,
+  lastStepReading: 0,
+  stepSamples: [] as StepSample[],
+  segments: [] as RunSegment[],
 };
 
 export const useRunStore = create<RunState>((set, get) => ({
@@ -36,12 +54,14 @@ export const useRunStore = create<RunState>((set, get) => ({
     set({ ...initial, status: 'running', startedAt: now, segmentStartedAt: now }),
 
   pause: (now) => {
-    const { status, segmentStartedAt, accumulatedMs } = get();
+    const { status, segmentStartedAt, accumulatedMs, segments } = get();
     if (status !== 'running' || segmentStartedAt === null) return;
     set({
       status: 'paused',
       accumulatedMs: accumulatedMs + (now - segmentStartedAt),
       segmentStartedAt: null,
+      segments: [...segments, { start: segmentStartedAt, end: now }],
+      stepSamples: [],
     });
   },
 
@@ -58,14 +78,38 @@ export const useRunStore = create<RunState>((set, get) => ({
     set({ points: [...points, p], distanceM: distanceM + added });
   },
 
+  beginStepTracking: () => set({ steps: 0, lastStepReading: 0 }),
+
+  addStepReading: (cumulative, now) => {
+    const { status, steps, lastStepReading, stepSamples } = get();
+    const delta = Math.max(0, cumulative - lastStepReading);
+    // 일시정지·저장 중 걸음은 버리되, 누적치 기준점은 갱신해 소급 가산을 막는다
+    if (status !== 'running') {
+      set({ lastStepReading: cumulative });
+      return;
+    }
+    const nextSteps = (steps ?? 0) + delta;
+    const nextSamples = [
+      ...stepSamples,
+      { timestamp: now, steps: nextSteps },
+    ].filter((s) => s.timestamp >= now - SAMPLE_RETENTION_MS);
+    set({
+      steps: nextSteps,
+      lastStepReading: cumulative,
+      stepSamples: nextSamples,
+    });
+  },
+
   // 저장이 진행되는 동안 재진입(종료 버튼 중복 탭)을 막는 단방향 게이트.
   beginSave: (now) => {
-    const { status, segmentStartedAt, accumulatedMs } = get();
+    const { status, segmentStartedAt, accumulatedMs, segments } = get();
     if (status === 'running' && segmentStartedAt !== null) {
       set({
         status: 'saving',
         accumulatedMs: accumulatedMs + (now - segmentStartedAt),
         segmentStartedAt: null,
+        segments: [...segments, { start: segmentStartedAt, end: now }],
+        stepSamples: [],
       });
       return true;
     }
