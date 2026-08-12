@@ -29,7 +29,8 @@
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.ACCESS_BACKGROUND_LOCATION",
         "android.permission.FOREGROUND_SERVICE",
-        "android.permission.FOREGROUND_SERVICE_LOCATION"
+        "android.permission.FOREGROUND_SERVICE_LOCATION",
+        "android.permission.ACTIVITY_RECOGNITION"
       ]
     },
     "web": {
@@ -53,6 +54,12 @@
           "locationWhenInUsePermission": "러닝 경로 기록을 위해 위치 정보를 사용합니다.",
           "isAndroidBackgroundLocationEnabled": true,
           "isAndroidForegroundServiceEnabled": true
+        }
+      ],
+      [
+        "expo-sensors",
+        {
+          "motionPermission": "케이던스(분당 걸음 수) 측정을 위해 모션 데이터를 사용합니다."
         }
       ]
     ],
