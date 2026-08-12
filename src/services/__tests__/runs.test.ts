@@ -28,6 +28,7 @@ describe('rowToRunRecord', () => {
     distance_m: 2000,
     route_geojson: null,
     steps: null as number | null,
+    route_points: null,
     created_at: '2026-08-03T01:10:00Z',
   };
 
