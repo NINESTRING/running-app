@@ -2,11 +2,12 @@ import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { Text } from '@/components/ui/text';
+import { ElevationChart } from '@/components/ElevationChart';
 import { RouteMap } from '@/components/RouteMap';
 import { SplitsList } from '@/components/SplitsList';
 import { avgCadenceSpm, formatCadence } from '@/lib/cadence';
 import { formatDistance, formatDuration, formatPace, paceSecPerKm } from '@/lib/geo';
-import { computeSplits, elevationGainM, splitDistanceFor } from '@/lib/splits';
+import { computeSplits, elevationGainM, elevationProfile, splitDistanceFor } from '@/lib/splits';
 import { getRun } from '@/services/runs';
 import { useSettingsStore } from '@/stores/settingsStore';
 import type { RoutePoint, RunRecord } from '@/types/run';
@@ -53,6 +54,7 @@ export default function RunDetailScreen() {
     ? computeSplits(run.routePoints, splitDistanceM)
     : null;
   const gain = run.routePoints ? elevationGainM(run.routePoints) : null;
+  const profile = run.routePoints ? elevationProfile(run.routePoints) : [];
 
   return (
     <ScrollView
@@ -74,6 +76,11 @@ export default function RunDetailScreen() {
           {gain !== null && ` · ↑ ${Math.round(gain)} m`}
         </Text>
       </View>
+      {profile.length >= 2 && (
+        <View className="h-40 px-4 pb-2">
+          <ElevationChart profile={profile} />
+        </View>
+      )}
       {splits && (
         <SplitsList
           completed={splits.completed}
