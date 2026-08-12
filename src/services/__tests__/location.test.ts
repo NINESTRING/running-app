@@ -1,4 +1,5 @@
 import * as Location from 'expo-location';
+import { useRunStore } from '../../stores/runStore';
 import {
   getInitialCoords,
   getMyLocation,
@@ -6,9 +7,15 @@ import {
   type MyLocationResult,
 } from '../location';
 
-// location.ts는 모듈 로드 시 defineTask를 실행하므로 expo-task-manager도 목 처리
+// location.ts는 모듈 로드 시 defineTask를 실행하므로 expo-task-manager도 목 처리.
+// 콜백을 캡처해 트래킹 태스크 본문을 직접 검증한다.
+let mockTrackingTask:
+  | ((body: { data: unknown; error: unknown }) => Promise<void>)
+  | undefined;
 jest.mock('expo-task-manager', () => ({
-  defineTask: jest.fn(),
+  defineTask: jest.fn((_name: string, cb: never) => {
+    mockTrackingTask = cb;
+  }),
 }));
 
 jest.mock('expo-location', () => ({
@@ -27,6 +34,41 @@ const requestForeground = Location.requestForegroundPermissionsAsync as jest.Moc
 const getCurrentPosition = Location.getCurrentPositionAsync as jest.Mock;
 const getForeground = Location.getForegroundPermissionsAsync as jest.Mock;
 const getLastKnown = Location.getLastKnownPositionAsync as jest.Mock;
+
+describe('run-tracking 태스크', () => {
+  beforeEach(() => {
+    useRunStore.getState().reset();
+  });
+
+  afterEach(() => {
+    useRunStore.getState().reset();
+  });
+
+  it('위치 배열을 고도 포함 RoutePoint로 스토어에 추가한다 (고도 없으면 null)', async () => {
+    useRunStore.getState().start(0);
+    await mockTrackingTask!({
+      data: {
+        locations: [
+          { coords: { latitude: 37.5, longitude: 127.0, altitude: 42.5 }, timestamp: 1000 },
+          { coords: { latitude: 37.5001, longitude: 127.0, altitude: null }, timestamp: 4000 },
+          { coords: { latitude: 37.5002, longitude: 127.0 }, timestamp: 7000 },
+        ],
+      },
+      error: null,
+    });
+    expect(useRunStore.getState().points).toEqual([
+      { latitude: 37.5, longitude: 127.0, altitude: 42.5, timestamp: 1000 },
+      { latitude: 37.5001, longitude: 127.0, altitude: null, timestamp: 4000 },
+      { latitude: 37.5002, longitude: 127.0, altitude: null, timestamp: 7000 },
+    ]);
+  });
+
+  it('error가 있으면 아무것도 추가하지 않는다', async () => {
+    useRunStore.getState().start(0);
+    await mockTrackingTask!({ data: null, error: { message: 'boom' } });
+    expect(useRunStore.getState().points).toEqual([]);
+  });
+});
 
 describe('getMyLocation', () => {
   let warnSpy: jest.SpyInstance;
