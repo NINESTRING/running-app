@@ -22,7 +22,7 @@ import {
   computeSplits,
   partitionPoints,
   splitDistanceFor,
-  splitPaceSec,
+  liveSplitPaceSec,
 } from '@/lib/splits';
 import {
   getInitialCoords,
@@ -107,6 +107,12 @@ export default function HomeScreen() {
     status === 'running' || status === 'paused'
       ? computeSplits(partitionPoints(points, segments), splitDistanceM)
       : null;
+  // 러닝 중에는 마지막 GPS 포인트 이후 경과 시간을 가산 — 멈춰 서면 페이스가 점점 느려진다
+  const lastPointAt = points[points.length - 1]?.timestamp;
+  const extraSec =
+    status === 'running' && lastPointAt !== undefined
+      ? (now - lastPointAt) / 1000
+      : 0;
 
   const onStart = async () => {
     const granted = await requestPermissions();
@@ -212,7 +218,7 @@ export default function HomeScreen() {
             {liveSplits && (
               <Text className="text-center text-sm text-muted-foreground">
                 {`구간 ${liveSplits.completed.length + 1} · ${formatPace(
-                  splitPaceSec(liveSplits.current, splitDistanceM)
+                  liveSplitPaceSec(liveSplits.current, splitDistanceM, extraSec)
                 )}`}
               </Text>
             )}

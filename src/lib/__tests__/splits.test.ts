@@ -3,6 +3,7 @@ import {
   computeSplits,
   elevationGainM,
   elevationProfile,
+  liveSplitPaceSec,
   partitionPoints,
   smoothAltitudes,
   splitDistanceFor,
@@ -150,6 +151,28 @@ describe('splitPaceSec', () => {
     const s = { index: 1, distanceM: 5, durationSec: 10, elevationDeltaM: null };
     expect(splitPaceSec(s, 1000)).toBeNull();
     expect(splitPaceSec(null, 1000)).toBeNull();
+  });
+
+  it('시간이 0 이하이면 null (일시정지 중 이동 후 재개 직후)', () => {
+    const s = { index: 2, distanceM: 50, durationSec: 0, elevationDeltaM: null };
+    expect(splitPaceSec(s, 1000)).toBeNull();
+  });
+});
+
+describe('liveSplitPaceSec', () => {
+  const s = { index: 2, distanceM: 500, durationSec: 150, elevationDeltaM: null };
+
+  it('마지막 포인트 이후 경과 시간을 가산해 환산한다', () => {
+    // (150 + 50)초에 500m → 1000m 환산 400초
+    expect(liveSplitPaceSec(s, 1000, 50)).toBeCloseTo(400);
+  });
+
+  it('음수 경과 시간은 0으로 클램프한다', () => {
+    expect(liveSplitPaceSec(s, 1000, -5)).toBeCloseTo(300);
+  });
+
+  it('null 구간은 null', () => {
+    expect(liveSplitPaceSec(null, 1000, 10)).toBeNull();
   });
 });
 

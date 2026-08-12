@@ -151,13 +151,32 @@ export function computeSplits(
   return { completed, current };
 }
 
-/** 구간 페이스(초/구간단위). 진행 중 구간은 구간 길이 기준 환산. 거리 10m 미만이면 null */
+/**
+ * 구간 페이스(초/구간단위). 진행 중 구간은 구간 길이 기준 환산.
+ * 거리 10m 미만이거나 시간 0 이하(일시정지 중 이동 후 재개 직후)는 null.
+ */
 export function splitPaceSec(
   split: Split | null,
   splitDistanceM: number
 ): number | null {
-  if (!split || split.distanceM < 10) return null;
+  if (!split || split.distanceM < 10 || split.durationSec <= 0) return null;
   return (split.durationSec * splitDistanceM) / split.distanceM;
+}
+
+/**
+ * 라이브 표시용 구간 페이스: 마지막 GPS 포인트 이후 벽시계 경과 시간을 가산해,
+ * 러너가 멈추면 페이스가 얼어붙지 않고 점점 느려지게 한다. 음수 경과는 0으로 클램프.
+ */
+export function liveSplitPaceSec(
+  split: Split | null,
+  splitDistanceM: number,
+  extraSec: number
+): number | null {
+  if (!split) return null;
+  return splitPaceSec(
+    { ...split, durationSec: split.durationSec + Math.max(0, extraSec) },
+    splitDistanceM
+  );
 }
 
 /** 총 상승고도: 스무딩 후 양(+)의 변화만 합산. 유효 고도가 2개 미만이면 null */
