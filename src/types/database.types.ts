@@ -40,6 +40,7 @@ export type Database = {
           id: string
           route: unknown
           started_at: string
+          steps: number | null
           user_id: string
         }
         Insert: {
@@ -49,6 +50,7 @@ export type Database = {
           id?: string
           route?: unknown
           started_at: string
+          steps?: number | null
           user_id?: string
         }
         Update: {
@@ -58,6 +60,7 @@ export type Database = {
           id?: string
           route?: unknown
           started_at?: string
+          steps?: number | null
           user_id?: string
         }
         Relationships: []
@@ -72,6 +75,7 @@ export type Database = {
           id: string | null
           route_geojson: string | null
           started_at: string | null
+          steps: number | null
           user_id: string | null
         }
         Insert: {
@@ -81,6 +85,7 @@ export type Database = {
           id?: string | null
           route_geojson?: never
           started_at?: string | null
+          steps?: number | null
           user_id?: string | null
         }
         Update: {
@@ -90,6 +95,7 @@ export type Database = {
           id?: string | null
           route_geojson?: never
           started_at?: string | null
+          steps?: number | null
           user_id?: string | null
         }
         Relationships: []
