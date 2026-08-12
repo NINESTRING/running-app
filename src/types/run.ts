@@ -9,5 +9,6 @@ export interface RunRecord {
   startedAt: string; // ISO 8601
   durationSec: number;
   distanceM: number;
+  steps: number | null; // null = 측정 안 됨
   routeGeojson: { type: 'LineString'; coordinates: [number, number][] } | null;
 }

@@ -27,6 +27,7 @@ describe('rowToRunRecord', () => {
     duration_sec: 600,
     distance_m: 2000,
     route_geojson: null,
+    steps: null as number | null,
     created_at: '2026-08-03T01:10:00Z',
   };
 
@@ -50,5 +51,16 @@ describe('rowToRunRecord', () => {
   it('필수 컬럼이 null인 행은 null 반환', () => {
     expect(rowToRunRecord({ ...baseRow, id: null })).toBeNull();
     expect(rowToRunRecord({ ...baseRow, started_at: null })).toBeNull();
+  });
+
+  it('steps 컬럼을 매핑', () => {
+    const rec = rowToRunRecord({ ...baseRow, steps: 1800 });
+    expect(rec?.steps).toBe(1800);
+  });
+
+  it('steps가 null이어도 레코드는 유지 (측정 안 된 기록)', () => {
+    const rec = rowToRunRecord(baseRow);
+    expect(rec).not.toBeNull();
+    expect(rec?.steps).toBeNull();
   });
 });

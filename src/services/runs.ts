@@ -6,6 +6,7 @@ export interface FinishedRun {
   startedAt: number; // epoch ms
   durationSec: number;
   distanceM: number;
+  steps: number | null; // null = 측정 안 됨
   points: RoutePoint[];
 }
 
@@ -33,6 +34,7 @@ export function rowToRunRecord(row: RunRow): RunRecord | null {
     startedAt: row.started_at,
     durationSec: row.duration_sec,
     distanceM: row.distance_m,
+    steps: row.steps ?? null,
     routeGeojson: row.route_geojson ? JSON.parse(row.route_geojson) : null,
   };
 }
@@ -48,6 +50,7 @@ export async function saveRun(
       started_at: new Date(run.startedAt).toISOString(),
       duration_sec: run.durationSec,
       distance_m: run.distanceM,
+      steps: run.steps,
       route: pointsToEwkt(run.points),
     });
     return error ? { ok: false, error: error.message } : { ok: true };
