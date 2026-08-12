@@ -1,4 +1,5 @@
 import type { RoutePoint } from '../types/run';
+import { haversineM } from './geo';
 
 export const SPLIT_KM_M = 1000;
 export const SPLIT_MI_M = 1609.344;
@@ -56,4 +57,132 @@ export function smoothAltitudes(points: RoutePoint[]): (number | null)[] {
     }
     return sum / n;
   });
+}
+
+export interface Split {
+  index: number; // 1부터
+  distanceM: number; // 완료 구간 = splitDistanceM, 진행 중 구간은 현재까지 누적
+  durationSec: number; // 일시정지 시간 제외
+  elevationDeltaM: number | null; // 구간 끝 − 시작 고도(스무딩 후). 고도 없으면 null
+}
+
+export interface SplitsResult {
+  completed: Split[];
+  current: Split | null; // 진행 중 미완료 구간. 이동 거리가 0이면 null
+}
+
+/**
+ * 세그먼트 그룹 포인트를 splitDistanceM 단위 구간으로 나눈다.
+ * - 같은 그룹 내 연속 쌍: 거리 = 하버사인, 시간 = timestamp 차이.
+ * - 그룹 경계를 넘는 쌍: 거리만 합산, 시간 0 (일시정지 제외 — 라이브 distanceM 누적과 동일 규칙).
+ * - 구간 경계가 쌍 중간에 걸치면 시각·고도를 선형 보간한다.
+ */
+export function computeSplits(
+  groups: RoutePoint[][],
+  splitDistanceM: number
+): SplitsResult {
+  const flat = groups.flat();
+  if (flat.length < 2) return { completed: [], current: null };
+  const smoothed = smoothAltitudes(flat);
+  // 그룹 첫 포인트의 flat 인덱스 — 직전 쌍이 세그먼트 경계임을 표시
+  const groupStartIdx = new Set<number>();
+  let acc = 0;
+  for (const g of groups) {
+    groupStartIdx.add(acc);
+    acc += g.length;
+  }
+
+  const completed: Split[] = [];
+  let dist = 0;
+  let durMs = 0;
+  let startAlt = smoothed[0];
+  let index = 1;
+
+  for (let i = 1; i < flat.length; i++) {
+    let dd = haversineM(flat[i - 1], flat[i]);
+    let dt = groupStartIdx.has(i) ? 0 : flat[i].timestamp - flat[i - 1].timestamp;
+    let fromAlt = smoothed[i - 1];
+    const toAlt = smoothed[i];
+    // 한 쌍이 여러 구간 경계를 넘을 수 있다
+    while (dd > 0 && dist + dd >= splitDistanceM) {
+      const need = splitDistanceM - dist;
+      const f = need / dd;
+      const tCross = dt * f;
+      const altCross =
+        fromAlt !== null && toAlt !== null
+          ? fromAlt + (toAlt - fromAlt) * f
+          : (toAlt ?? fromAlt);
+      completed.push({
+        index,
+        distanceM: splitDistanceM,
+        durationSec: (durMs + tCross) / 1000,
+        elevationDeltaM:
+          startAlt !== null && altCross !== null ? altCross - startAlt : null,
+      });
+      index++;
+      dd -= need;
+      dt -= tCross;
+      dist = 0;
+      durMs = 0;
+      startAlt = altCross;
+      fromAlt = altCross;
+    }
+    dist += dd;
+    durMs += dt;
+  }
+
+  const endAlt = smoothed[flat.length - 1];
+  const current =
+    dist > 0
+      ? {
+          index,
+          distanceM: dist,
+          durationSec: durMs / 1000,
+          elevationDeltaM:
+            startAlt !== null && endAlt !== null ? endAlt - startAlt : null,
+        }
+      : null;
+  return { completed, current };
+}
+
+/** 구간 페이스(초/구간단위). 진행 중 구간은 구간 길이 기준 환산. 거리 10m 미만이면 null */
+export function splitPaceSec(
+  split: Split | null,
+  splitDistanceM: number
+): number | null {
+  if (!split || split.distanceM < 10) return null;
+  return (split.durationSec * splitDistanceM) / split.distanceM;
+}
+
+/** 총 상승고도: 스무딩 후 양(+)의 변화만 합산. 유효 고도가 2개 미만이면 null */
+export function elevationGainM(groups: RoutePoint[][]): number | null {
+  const alts = smoothAltitudes(groups.flat()).filter(
+    (a): a is number => a !== null
+  );
+  if (alts.length < 2) return null;
+  let gain = 0;
+  for (let i = 1; i < alts.length; i++) {
+    const d = alts[i] - alts[i - 1];
+    if (d > 0) gain += d;
+  }
+  return gain;
+}
+
+export interface ProfilePoint {
+  distanceM: number;
+  altitudeM: number;
+}
+
+/** 고도 그래프용 누적 거리 × 스무딩 고도 시리즈. 고도 null 포인트는 제외(거리는 누적). */
+export function elevationProfile(groups: RoutePoint[][]): ProfilePoint[] {
+  const flat = groups.flat();
+  const smoothed = smoothAltitudes(flat);
+  const out: ProfilePoint[] = [];
+  let dist = 0;
+  for (let i = 0; i < flat.length; i++) {
+    if (i > 0) dist += haversineM(flat[i - 1], flat[i]);
+    const a = smoothed[i];
+    if (a !== null) out.push({ distanceM: dist, altitudeM: a });
+  }
+  return out;
 }
