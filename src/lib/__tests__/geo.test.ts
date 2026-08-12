@@ -4,7 +4,7 @@ import {
   formatDuration,
   formatPace,
   haversineM,
-  paceSecPerKm,
+  paceSecPerUnit,
   regionForRoute,
 } from '../geo';
 
@@ -24,13 +24,22 @@ describe('haversineM', () => {
   });
 });
 
-describe('paceSecPerKm', () => {
-  it('1km를 5분에 달리면 300초/km', () => {
-    expect(paceSecPerKm(1000, 300_000)).toBeCloseTo(300);
+describe('paceSecPerUnit', () => {
+  it('km: 1km를 5분에 달리면 300초/km', () => {
+    expect(paceSecPerUnit(1000, 300_000, 'km')).toBeCloseTo(300);
+  });
+
+  it('mi: 1마일(1609.344m)을 8분에 달리면 480초/mi', () => {
+    expect(paceSecPerUnit(1609.344, 480_000, 'mi')).toBeCloseTo(480);
+  });
+
+  it('mi: 같은 달리기라도 km 페이스보다 1.609344배 큰 값', () => {
+    expect(paceSecPerUnit(1000, 300_000, 'mi')).toBeCloseTo(300 * 1.609344);
   });
 
   it('거리가 10m 미만이면 null', () => {
-    expect(paceSecPerKm(5, 60_000)).toBeNull();
+    expect(paceSecPerUnit(5, 60_000, 'km')).toBeNull();
+    expect(paceSecPerUnit(5, 60_000, 'mi')).toBeNull();
   });
 });
 

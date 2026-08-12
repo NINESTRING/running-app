@@ -43,9 +43,17 @@ export function regionForRoute(points: LatLng[]): MapRegion | null {
   };
 }
 
-export function paceSecPerKm(distanceM: number, elapsedMs: number): number | null {
+export const METERS_PER_MILE = 1609.344;
+
+/** 평균 페이스(초/단위거리). 단위 설정에 따라 초/km 또는 초/mi. 거리 10m 미만이면 null */
+export function paceSecPerUnit(
+  distanceM: number,
+  elapsedMs: number,
+  unit: 'km' | 'mi'
+): number | null {
   if (distanceM < 10) return null;
-  return elapsedMs / 1000 / (distanceM / 1000);
+  const unitM = unit === 'mi' ? METERS_PER_MILE : 1000;
+  return elapsedMs / 1000 / (distanceM / unitM);
 }
 
 export function formatPace(secPerKm: number | null): string {

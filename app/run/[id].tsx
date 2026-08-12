@@ -6,7 +6,7 @@ import { ElevationChart } from '@/components/ElevationChart';
 import { RouteMap } from '@/components/RouteMap';
 import { SplitsList } from '@/components/SplitsList';
 import { avgCadenceSpm, formatCadence } from '@/lib/cadence';
-import { formatDistance, formatDuration, formatPace, paceSecPerKm } from '@/lib/geo';
+import { formatDistance, formatDuration, formatPace, paceSecPerUnit } from '@/lib/geo';
 import { computeSplits, elevationGainM, elevationProfile, splitDistanceFor } from '@/lib/splits';
 import { getRun } from '@/services/runs';
 import { useSettingsStore } from '@/stores/settingsStore';
@@ -71,7 +71,7 @@ export default function RunDetailScreen() {
         <Text className="text-muted-foreground">
           {formatDistance(run.distanceM, unit)}{unit} ·{' '}
           {formatDuration(run.durationSec * 1000)} ·{' '}
-          {formatPace(paceSecPerKm(run.distanceM, run.durationSec * 1000))}
+          {formatPace(paceSecPerUnit(run.distanceM, run.durationSec * 1000, unit))}
           {avgCadence !== null && ` · ${formatCadence(avgCadence)} spm`}
           {gain !== null && ` · ↑ ${Math.round(gain)} m`}
         </Text>

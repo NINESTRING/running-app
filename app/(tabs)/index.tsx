@@ -17,7 +17,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { RouteMap, type RouteMapHandle } from '@/components/RouteMap';
 import { cadenceSpm, formatCadence } from '@/lib/cadence';
-import { formatDistance, formatDuration, formatPace, paceSecPerKm } from '@/lib/geo';
+import { formatDistance, formatDuration, formatPace, paceSecPerUnit } from '@/lib/geo';
 import {
   computeSplits,
   partitionPoints,
@@ -212,7 +212,7 @@ export default function HomeScreen() {
             <View className="flex-row justify-around">
               <Metric label={`거리(${unit})`} value={formatDistance(distanceM, unit)} />
               <Metric label="시간" value={formatDuration(elapsed)} />
-              <Metric label="페이스" value={formatPace(paceSecPerKm(distanceM, elapsed))} />
+              <Metric label={`페이스(/${unit})`} value={formatPace(paceSecPerUnit(distanceM, elapsed, unit))} />
               <Metric label="케이던스" value={formatCadence(cadenceSpm(stepSamples, now))} />
             </View>
             {liveSplits && (
