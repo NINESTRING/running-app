@@ -90,6 +90,8 @@ describe('computeSplits', () => {
     expect(current).not.toBeNull();
     expect(current!.index).toBe(3);
     expect(current!.distanceM).toBeCloseTo(19 * STEP_M - 2000, 0);
+    // 등속이므로 진행 중 구간 시간 = 잔여 거리 / 속도
+    expect(current!.durationSec).toBeCloseTo((19 * STEP_M - 2000) / 11.1195, 1);
   });
 
   it('포인트 한 쌍이 여러 구간 경계를 넘으면 모두 분할한다', () => {
@@ -119,9 +121,23 @@ describe('computeSplits', () => {
       pt(i * 0.001, i * 10_000, i * 2)
     );
     const { completed } = computeSplits([points], 1000);
-    // 1000m ≈ 8.993 인터벌 → 고도 변화 ≈ 8.993 * 2 ≈ 18 (스무딩은 선형 데이터 중앙부에서 원본과 동일)
-    expect(completed[0].elevationDeltaM).toBeGreaterThan(15);
-    expect(completed[0].elevationDeltaM).toBeLessThan(20);
+    // 시작 고도 = smoothed[0] = (0+2+4)/3 = 2 (스무딩 경계 클램프),
+    // 1000m 경계는 8~9번째 포인트 사이 f≈0.9932 → 보간 고도 = 16 + 2f ≈ 17.99
+    // → 델타 ≈ 15.99
+    expect(completed[0].elevationDeltaM).toBeCloseTo(15.99, 1);
+  });
+
+  it('단조 경사에서 구간 델타의 합 = 스무딩 고도의 처음↔끝 차이', () => {
+    // 델타는 텔레스코프: 각 구간 시작 고도 = 직전 구간 경계 보간 고도
+    const points = Array.from({ length: 20 }, (_, i) =>
+      pt(i * 0.001, i * 10_000, i * 2)
+    );
+    const { completed, current } = computeSplits([points], 1000);
+    const total =
+      completed.reduce((sum, s) => sum + (s.elevationDeltaM ?? 0), 0) +
+      (current?.elevationDeltaM ?? 0);
+    // smoothed[19] = (34+36+38)/3 = 36, smoothed[0] = 2 → 합 34
+    expect(total).toBeCloseTo(34, 5);
   });
 
   it('고도가 전부 null이면 elevationDeltaM은 null', () => {
@@ -194,6 +210,14 @@ describe('elevationGainM', () => {
     expect(elevationGainM([[pt(0, 0), pt(0.001, 1000)]])).toBeNull();
     expect(elevationGainM([])).toBeNull();
   });
+
+  it('일시정지로 나뉜 다중 그룹도 이어서 합산한다', () => {
+    // 그룹 경계를 가로질러 단조 증가: flat [0,2,4,4,6,8]
+    const g1 = [pt(0, 0, 0), pt(0.001, 10_000, 2), pt(0.002, 20_000, 4)];
+    const g2 = [pt(0.002, 120_000, 4), pt(0.003, 130_000, 6), pt(0.004, 140_000, 8)];
+    // 스무딩 후에도 단조 증가 → gain = smoothed 끝(6) − 처음(2) = 4
+    expect(elevationGainM([g1, g2])).toBeCloseTo(4);
+  });
 });
 
 describe('elevationProfile', () => {
@@ -212,5 +236,14 @@ describe('elevationProfile', () => {
     const profile = elevationProfile([points]);
     expect(profile).toHaveLength(2);
     expect(profile[1].distanceM).toBeCloseTo(2 * STEP_M, 0);
+  });
+
+  it('일시정지로 나뉜 다중 그룹에서도 거리를 이어서 누적한다', () => {
+    // 재개 지점이 같아도 그룹 경계 쌍의 거리(0)는 그대로 누적 규칙을 따른다
+    const g1 = [pt(0, 0, 10), pt(0.001, 10_000, 10)];
+    const g2 = [pt(0.001, 120_000, 10), pt(0.002, 130_000, 10)];
+    const profile = elevationProfile([g1, g2]);
+    expect(profile).toHaveLength(4);
+    expect(profile[3].distanceM).toBeCloseTo(2 * STEP_M, 0);
   });
 });
