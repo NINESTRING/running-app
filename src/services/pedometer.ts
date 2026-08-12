@@ -19,10 +19,12 @@ export async function startStepCounting(): Promise<void> {
   if (subscription) return;
   try {
     if (!(await Pedometer.isAvailableAsync())) return;
-    useRunStore.getState().beginStepTracking();
+    // 구독을 먼저 만들어 성공을 확인한 뒤 steps를 0으로 연다 — watchStepCount가
+    // 동기 throw하면 beginStepTracking()이 불리지 않아 steps는 null(측정 안 됨)로 남는다
     subscription = Pedometer.watchStepCount((result) => {
       useRunStore.getState().addStepReading(result.steps, Date.now());
     });
+    useRunStore.getState().beginStepTracking();
   } catch {
     // 케이던스 없이 러닝 진행 — steps는 null(측정 안 됨)로 남는다
   }

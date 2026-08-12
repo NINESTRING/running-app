@@ -219,6 +219,16 @@ describe('runStore 케이던스', () => {
     ]);
   });
 
+  it('beginStepTracking 없이 addStepReading이 와도 steps는 null 유지', () => {
+    const store = useRunStore.getState();
+    store.start(0);
+    useRunStore.getState().addStepReading(10, 5000);
+    const s = useRunStore.getState();
+    expect(s.steps).toBeNull();
+    expect(s.lastStepReading).toBe(10);
+    expect(s.stepSamples).toEqual([]);
+  });
+
   it('start/reset은 케이던스 상태를 초기화', () => {
     const store = useRunStore.getState();
     store.start(0);

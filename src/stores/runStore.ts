@@ -83,8 +83,10 @@ export const useRunStore = create<RunState>((set, get) => ({
   addStepReading: (cumulative, now) => {
     const { status, steps, lastStepReading, stepSamples } = get();
     const delta = Math.max(0, cumulative - lastStepReading);
-    // 일시정지·저장 중 걸음은 버리되, 누적치 기준점은 갱신해 소급 가산을 막는다
-    if (status !== 'running') {
+    // 일시정지·저장 중 걸음은 버리되, 누적치 기준점은 갱신해 소급 가산을 막는다.
+    // steps가 null이면 beginStepTracking() 이전(또는 잔존 구독)이므로 non-running과 동일하게 처리 —
+    // null→0 전환은 오직 beginStepTracking()만 할 수 있다.
+    if (status !== 'running' || steps === null) {
       set({ lastStepReading: cumulative });
       return;
     }
