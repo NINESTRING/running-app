@@ -19,6 +19,12 @@ import { RouteMap, type RouteMapHandle } from '@/components/RouteMap';
 import { cadenceSpm, formatCadence } from '@/lib/cadence';
 import { formatDistance, formatDuration, formatPace, paceSecPerKm } from '@/lib/geo';
 import {
+  computeSplits,
+  partitionPoints,
+  splitDistanceFor,
+  splitPaceSec,
+} from '@/lib/splits';
+import {
   getInitialCoords,
   getMyLocation,
   myLocationAction,
@@ -49,6 +55,7 @@ export default function HomeScreen() {
   const accumulatedMs = useRunStore((s) => s.accumulatedMs);
   const segmentStartedAt = useRunStore((s) => s.segmentStartedAt);
   const stepSamples = useRunStore((s) => s.stepSamples);
+  const segments = useRunStore((s) => s.segments);
   const unit = useSettingsStore((s) => s.unit);
   const [now, setNow] = useState(() => Date.now());
   const [permissionDenied, setPermissionDenied] = useState(false);
@@ -93,6 +100,13 @@ export default function HomeScreen() {
   }, [status]);
 
   const elapsed = elapsedMs({ accumulatedMs, segmentStartedAt }, now);
+
+  // 러닝·일시정지 중 현재 구간 번호와 실시간 구간 페이스
+  const splitDistanceM = splitDistanceFor(unit);
+  const liveSplits =
+    status === 'running' || status === 'paused'
+      ? computeSplits(partitionPoints(points, segments), splitDistanceM)
+      : null;
 
   const onStart = async () => {
     const granted = await requestPermissions();
@@ -195,6 +209,13 @@ export default function HomeScreen() {
               <Metric label="페이스" value={formatPace(paceSecPerKm(distanceM, elapsed))} />
               <Metric label="케이던스" value={formatCadence(cadenceSpm(stepSamples, now))} />
             </View>
+            {liveSplits && (
+              <Text className="text-center text-sm text-muted-foreground">
+                {`구간 ${liveSplits.completed.length + 1} · ${formatPace(
+                  splitPaceSec(liveSplits.current, splitDistanceM)
+                )}`}
+              </Text>
+            )}
             <View className="flex-row justify-center gap-3">
               {status === 'idle' && (
                 <Button size="lg" onPress={onStart}>
