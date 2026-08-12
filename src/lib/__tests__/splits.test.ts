@@ -4,6 +4,7 @@ import {
   elevationGainM,
   elevationProfile,
   formatElevationDelta,
+  liveExtraSec,
   liveSplitPaceSec,
   partitionPoints,
   smoothAltitudes,
@@ -190,6 +191,29 @@ describe('liveSplitPaceSec', () => {
 
   it('null 구간은 null', () => {
     expect(liveSplitPaceSec(null, 1000, 10)).toBeNull();
+  });
+});
+
+describe('liveExtraSec', () => {
+  it('러닝 중에는 마지막 포인트 이후 경과 시간', () => {
+    expect(liveExtraSec(true, 10_000, 7000, 1000)).toBeCloseTo(3);
+  });
+
+  it('재개 직후에는 세그먼트 시작이 앵커 — 일시정지 시간을 가산하지 않는다', () => {
+    // 마지막 포인트 t=5초(일시정지 전), 재개 t=60초, 현재 t=65초 → 5초만 가산
+    expect(liveExtraSec(true, 65_000, 5000, 60_000)).toBeCloseTo(5);
+  });
+
+  it('러닝 중이 아니면 0 (일시정지 중 페이스 동결)', () => {
+    expect(liveExtraSec(false, 65_000, 5000, null)).toBe(0);
+  });
+
+  it('앵커 정보가 없으면 0', () => {
+    expect(liveExtraSec(true, 10_000, undefined, null)).toBe(0);
+  });
+
+  it('시계 역행은 0으로 클램프', () => {
+    expect(liveExtraSec(true, 6000, 7000, 1000)).toBe(0);
   });
 });
 

@@ -68,6 +68,12 @@ describe('run-tracking 태스크', () => {
     await mockTrackingTask!({ data: null, error: { message: 'boom' } });
     expect(useRunStore.getState().points).toEqual([]);
   });
+
+  it('error 없이 data가 비어도 아무것도 추가하지 않는다', async () => {
+    useRunStore.getState().start(0);
+    await mockTrackingTask!({ data: null, error: null });
+    expect(useRunStore.getState().points).toEqual([]);
+  });
 });
 
 describe('getMyLocation', () => {

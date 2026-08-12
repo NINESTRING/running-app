@@ -22,6 +22,7 @@ import {
   computeSplits,
   partitionPoints,
   splitDistanceFor,
+  liveExtraSec,
   liveSplitPaceSec,
 } from '@/lib/splits';
 import {
@@ -107,12 +108,14 @@ export default function HomeScreen() {
     status === 'running' || status === 'paused'
       ? computeSplits(partitionPoints(points, segments), splitDistanceM)
       : null;
-  // 러닝 중에는 마지막 GPS 포인트 이후 경과 시간을 가산 — 멈춰 서면 페이스가 점점 느려진다
-  const lastPointAt = points[points.length - 1]?.timestamp;
-  const extraSec =
-    status === 'running' && lastPointAt !== undefined
-      ? (now - lastPointAt) / 1000
-      : 0;
+  // 러닝 중에는 마지막 GPS 포인트 이후 경과 시간을 가산 — 멈춰 서면 페이스가 점점 느려진다.
+  // 재개 직후엔 세그먼트 시작이 앵커라 일시정지 시간은 가산되지 않는다.
+  const extraSec = liveExtraSec(
+    status === 'running',
+    now,
+    points[points.length - 1]?.timestamp,
+    segmentStartedAt
+  );
 
   const onStart = async () => {
     const granted = await requestPermissions();

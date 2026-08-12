@@ -1,8 +1,8 @@
 import type { RoutePoint } from '../types/run';
-import { haversineM } from './geo';
+import { haversineM, METERS_PER_MILE } from './geo';
 
 export const SPLIT_KM_M = 1000;
-export const SPLIT_MI_M = 1609.344;
+export const SPLIT_MI_M = METERS_PER_MILE;
 
 export function splitDistanceFor(unit: 'km' | 'mi'): number {
   return unit === 'mi' ? SPLIT_MI_M : SPLIT_KM_M;
@@ -164,6 +164,23 @@ export function splitPaceSec(
 }
 
 /**
+ * 라이브 페이스 가산용 경과 시간(초). 마지막 GPS 포인트와 현재 세그먼트 시작 중
+ * 더 최근을 앵커로 삼아, 재개 직후 일시정지 시간이 페이스에 가산되는 것을 막는다.
+ * 러닝 중이 아니거나 앵커 정보가 없으면 0. 음수는 0으로 클램프.
+ */
+export function liveExtraSec(
+  running: boolean,
+  nowMs: number,
+  lastPointAt: number | undefined,
+  segmentStartedAt: number | null
+): number {
+  if (!running) return 0;
+  const anchor = Math.max(lastPointAt ?? -Infinity, segmentStartedAt ?? -Infinity);
+  if (!Number.isFinite(anchor)) return 0;
+  return Math.max(0, (nowMs - anchor) / 1000);
+}
+
+/**
  * 라이브 표시용 구간 페이스: 마지막 GPS 포인트 이후 벽시계 경과 시간을 가산해,
  * 러너가 멈추면 페이스가 얼어붙지 않고 점점 느려지게 한다. 음수 경과는 0으로 클램프.
  */
@@ -183,7 +200,7 @@ export function liveSplitPaceSec(
 export function formatElevationDelta(deltaM: number | null): string {
   if (deltaM === null) return '—';
   const r = Math.round(deltaM);
-  return r > 0 ? `+${r} m` : `${r === 0 ? 0 : r} m`;
+  return r > 0 ? `+${r} m` : `${r} m`; // String(-0) === '0'이라 -0도 '0 m'
 }
 
 /** 총 상승고도: 스무딩 후 양(+)의 변화만 합산. 유효 고도가 2개 미만이면 null */
