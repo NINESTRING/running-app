@@ -200,3 +200,50 @@ export function niceMax(value: number): number {
   }
   return 10 * base;
 }
+
+export interface PeriodOption {
+  key: string;
+  label: string;
+  anchor: Date;
+}
+
+export function periodLabel(type: PeriodType, anchor: Date): string {
+  if (type === 'week') {
+    const start = startOfWeek(anchor);
+    const end = addDays(start, 6);
+    return `${start.getMonth() + 1}월 ${start.getDate()}일 ~ ${end.getMonth() + 1}월 ${end.getDate()}일`;
+  }
+  if (type === 'month') return `${anchor.getFullYear()}년 ${anchor.getMonth() + 1}월`;
+  if (type === 'year') return `${anchor.getFullYear()}년`;
+  return '전체';
+}
+
+/** 피커 옵션: 기록이 있는 기간 ∪ 현재 기간, 최신순. 'all'은 빈 배열 */
+export function availablePeriods(
+  runs: Pick<RunRecord, 'startedAt'>[],
+  type: PeriodType,
+  now: Date
+): PeriodOption[] {
+  if (type === 'all') return [];
+  const byKey = new Map<string, Date>();
+  const put = (d: Date) => {
+    const anchor =
+      type === 'week'
+        ? startOfWeek(d)
+        : type === 'month'
+          ? new Date(d.getFullYear(), d.getMonth(), 1)
+          : new Date(d.getFullYear(), 0, 1);
+    const key =
+      type === 'week'
+        ? `${anchor.getFullYear()}-${anchor.getMonth() + 1}-${anchor.getDate()}`
+        : type === 'month'
+          ? `${anchor.getFullYear()}-${anchor.getMonth() + 1}`
+          : `${anchor.getFullYear()}`;
+    if (!byKey.has(key)) byKey.set(key, anchor);
+  };
+  put(now);
+  for (const run of runs) put(new Date(run.startedAt));
+  return [...byKey.entries()]
+    .sort((a, b) => b[1].getTime() - a[1].getTime())
+    .map(([key, anchor]) => ({ key, anchor, label: periodLabel(type, anchor) }));
+}

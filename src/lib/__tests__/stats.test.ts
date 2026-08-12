@@ -1,4 +1,4 @@
-import { weeklyDistances, periodBuckets, periodSummary, averageDistanceM, niceMax } from '../stats';
+import { weeklyDistances, periodBuckets, periodSummary, averageDistanceM, niceMax, availablePeriods, periodLabel } from '../stats';
 
 // 2026-08-03은 월요일
 const NOW = new Date('2026-08-03T12:00:00+09:00');
@@ -165,5 +165,40 @@ describe('niceMax', () => {
     expect(niceMax(128)).toBe(200);
     expect(niceMax(100)).toBe(100);
     expect(niceMax(3.4)).toBe(5);
+  });
+});
+
+describe('availablePeriods', () => {
+  it('month: 기록 있는 달 + 현재 달, 최신순, 중복 제거', () => {
+    const runs = [
+      { startedAt: '2026-06-10T07:00:00+09:00' },
+      { startedAt: '2026-06-20T07:00:00+09:00' },
+      { startedAt: '2025-11-01T07:00:00+09:00' },
+    ];
+    const options = availablePeriods(runs, 'month', WED);
+    expect(options.map((o) => o.label)).toEqual([
+      '2026년 8월', // 현재 달 (기록 없어도 포함)
+      '2026년 6월',
+      '2025년 11월',
+    ]);
+    expect(options[1].anchor).toEqual(new Date('2026-06-01T00:00:00+09:00'));
+    expect(new Set(options.map((o) => o.key)).size).toBe(3);
+  });
+
+  it('week: 주 시작~끝 날짜 라벨', () => {
+    const options = availablePeriods([], 'week', WED);
+    expect(options).toHaveLength(1);
+    expect(options[0].label).toBe('8월 3일 ~ 8월 9일');
+    expect(options[0].anchor).toEqual(new Date('2026-08-03T00:00:00+09:00'));
+  });
+
+  it('year: 연도 라벨', () => {
+    const runs = [{ startedAt: '2024-02-01T07:00:00+09:00' }];
+    const options = availablePeriods(runs, 'year', WED);
+    expect(options.map((o) => o.label)).toEqual(['2026년', '2024년']);
+  });
+
+  it('all: 빈 배열 (피커 없음)', () => {
+    expect(availablePeriods([], 'all', WED)).toEqual([]);
   });
 });
