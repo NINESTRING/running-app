@@ -38,6 +38,7 @@ export default function RunDetailScreen() {
     run.routeGeojson?.coordinates.map(([lon, lat]) => ({
       latitude: lat,
       longitude: lon,
+      altitude: null,
       timestamp: 0,
     })) ?? [];
 

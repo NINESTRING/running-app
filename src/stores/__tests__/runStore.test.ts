@@ -1,7 +1,7 @@
 import { elapsedMs, useRunStore } from '../runStore';
 
-const P1 = { latitude: 0, longitude: 0, timestamp: 1000 };
-const P2 = { latitude: 1, longitude: 0, timestamp: 2000 }; // P1에서 약 111,195m
+const P1 = { latitude: 0, longitude: 0, altitude: null, timestamp: 1000 };
+const P2 = { latitude: 1, longitude: 0, altitude: null, timestamp: 2000 }; // P1에서 약 111,195m
 
 beforeEach(() => {
   useRunStore.getState().reset();

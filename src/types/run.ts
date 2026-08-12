@@ -1,6 +1,7 @@
 export interface RoutePoint {
   latitude: number;
   longitude: number;
+  altitude: number | null; // 미터, WGS84 타원체 기준. null = 기기 미제공(웹 등)
   timestamp: number; // epoch ms
 }
 

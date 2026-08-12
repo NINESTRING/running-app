@@ -12,6 +12,7 @@ TaskManager.defineTask(RUN_TRACKING_TASK, async ({ data, error }) => {
     addPoint({
       latitude: loc.coords.latitude,
       longitude: loc.coords.longitude,
+      altitude: loc.coords.altitude ?? null,
       timestamp: loc.timestamp,
     });
   }
