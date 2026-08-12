@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { RouteMap, type RouteMapHandle } from '@/components/RouteMap';
+import { cadenceSpm, formatCadence } from '@/lib/cadence';
 import { formatDistance, formatDuration, formatPace, paceSecPerKm } from '@/lib/geo';
 import {
   getInitialCoords,
@@ -25,6 +26,12 @@ import {
   startTracking,
   stopTracking,
 } from '@/services/location';
+import {
+  backfillSteps,
+  requestPedometerPermissions,
+  startStepCounting,
+  stopStepCounting,
+} from '@/services/pedometer';
 import { saveRun } from '@/services/runs';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { elapsedMs, useRunStore } from '@/stores/runStore';
@@ -41,6 +48,7 @@ export default function HomeScreen() {
   const distanceM = useRunStore((s) => s.distanceM);
   const accumulatedMs = useRunStore((s) => s.accumulatedMs);
   const segmentStartedAt = useRunStore((s) => s.segmentStartedAt);
+  const stepSamples = useRunStore((s) => s.stepSamples);
   const unit = useSettingsStore((s) => s.unit);
   const [now, setNow] = useState(() => Date.now());
   const [permissionDenied, setPermissionDenied] = useState(false);
@@ -104,6 +112,10 @@ export default function HomeScreen() {
     }
     useRunStore.getState().start(Date.now());
     setNow(Date.now());
+    // 모션 권한 거부·미지원이어도 러닝은 계속 — 케이던스만 '--'
+    if (await requestPedometerPermissions()) {
+      await startStepCounting();
+    }
   };
 
   const onPause = () => useRunStore.getState().pause(Date.now());
@@ -121,13 +133,17 @@ export default function HomeScreen() {
     } catch {
       // 추적 중지 실패해도 이후 기록 저장 로직은 계속 진행
     }
+    stopStepCounting();
     const s = useRunStore.getState();
     const stoppedAt = Date.now();
     const durationSec = Math.round(elapsedMs(s, 0) / 1000);
+    // iOS: CMPedometer 이력으로 백필 (화면 꺼짐 구간 보정). 실패·Android는 라이브 카운트.
+    const steps = (await backfillSteps(s.segments)) ?? s.steps;
     const result = await saveRun({
       startedAt: s.startedAt ?? stoppedAt,
       durationSec,
       distanceM: s.distanceM,
+      steps,
       points: s.points,
     });
     if (result.ok) {
@@ -176,6 +192,7 @@ export default function HomeScreen() {
               <Metric label={`거리(${unit})`} value={formatDistance(distanceM, unit)} />
               <Metric label="시간" value={formatDuration(elapsed)} />
               <Metric label="페이스" value={formatPace(paceSecPerKm(distanceM, elapsed))} />
+              <Metric label="케이던스" value={formatCadence(cadenceSpm(stepSamples, now))} />
             </View>
             <View className="flex-row justify-center gap-3">
               {status === 'idle' && (
