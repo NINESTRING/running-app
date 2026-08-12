@@ -13,8 +13,17 @@ export interface FinishedRun {
 }
 
 // [t, lat, lng, alt] 튜플의 세그먼트별 배열 (route_points JSONB 포맷)
+// 주의: 그룹 개수는 segments.length과 1:1이 아니며, 빈 세그먼트는 드롭됨.
+// 소비자는 그룹 개수와 세그먼트 개수를 대응시키지 말고,
+// "그룹 경계 = 일시정지(시간 미산입)"라는 의미로만 사용할 것.
 export type RoutePointsJson = [number, number, number, number | null][][];
 
+/**
+ * RoutePoint 배열을 세그먼트 단위로 그룹화해 직렬화한다.
+ * 그룹은 partitionPoints()의 의미를 따르므로:
+ * - 포인트가 0개인 세그먼트는 그룹이 생기지 않음
+ * - 마지막 세그먼트 이후 포인트들은 추가 그룹을 형성함
+ */
 export function segmentsToJson(
   points: RoutePoint[],
   segments: TimeRange[]
