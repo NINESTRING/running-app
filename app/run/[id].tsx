@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { RouteMap } from '@/components/RouteMap';
+import { avgCadenceSpm, formatCadence } from '@/lib/cadence';
 import { formatDistance, formatDuration, formatPace, paceSecPerKm } from '@/lib/geo';
 import { getRun } from '@/services/runs';
 import { useSettingsStore } from '@/stores/settingsStore';
@@ -40,6 +41,8 @@ export default function RunDetailScreen() {
       timestamp: 0,
     })) ?? [];
 
+  const avgCadence = avgCadenceSpm(run.steps, run.durationSec);
+
   return (
     <View className="flex-1 bg-background">
       <View className="flex-1">
@@ -53,6 +56,7 @@ export default function RunDetailScreen() {
           {formatDistance(run.distanceM, unit)}{unit} ·{' '}
           {formatDuration(run.durationSec * 1000)} ·{' '}
           {formatPace(paceSecPerKm(run.distanceM, run.durationSec * 1000))}
+          {avgCadence !== null && ` · ${formatCadence(avgCadence)} spm`}
         </Text>
       </View>
     </View>
