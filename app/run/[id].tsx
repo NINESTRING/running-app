@@ -1,10 +1,12 @@
 import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { RouteMap } from '@/components/RouteMap';
+import { SplitsList } from '@/components/SplitsList';
 import { avgCadenceSpm, formatCadence } from '@/lib/cadence';
 import { formatDistance, formatDuration, formatPace, paceSecPerKm } from '@/lib/geo';
+import { computeSplits, elevationGainM, splitDistanceFor } from '@/lib/splits';
 import { getRun } from '@/services/runs';
 import { useSettingsStore } from '@/stores/settingsStore';
 import type { RoutePoint, RunRecord } from '@/types/run';
@@ -34,19 +36,30 @@ export default function RunDetailScreen() {
     );
   }
 
+  // 지도는 원본 시계열 우선, 구버전 기록은 GeoJSON 폴백
   const points: RoutePoint[] =
+    run.routePoints?.flat() ??
     run.routeGeojson?.coordinates.map(([lon, lat]) => ({
       latitude: lat,
       longitude: lon,
       altitude: null,
       timestamp: 0,
-    })) ?? [];
+    })) ??
+    [];
 
   const avgCadence = avgCadenceSpm(run.steps, run.durationSec);
+  const splitDistanceM = splitDistanceFor(unit);
+  const splits = run.routePoints
+    ? computeSplits(run.routePoints, splitDistanceM)
+    : null;
+  const gain = run.routePoints ? elevationGainM(run.routePoints) : null;
 
   return (
-    <View className="flex-1 bg-background">
-      <View className="flex-1">
+    <ScrollView
+      className="flex-1 bg-background"
+      contentContainerStyle={{ paddingBottom: 32 }}
+    >
+      <View className="h-72">
         <RouteMap points={points} />
       </View>
       <View className="gap-2 p-4">
@@ -58,8 +71,17 @@ export default function RunDetailScreen() {
           {formatDuration(run.durationSec * 1000)} ·{' '}
           {formatPace(paceSecPerKm(run.distanceM, run.durationSec * 1000))}
           {avgCadence !== null && ` · ${formatCadence(avgCadence)} spm`}
+          {gain !== null && ` · ↑ ${Math.round(gain)} m`}
         </Text>
       </View>
-    </View>
+      {splits && (
+        <SplitsList
+          completed={splits.completed}
+          current={splits.current}
+          splitDistanceM={splitDistanceM}
+          unit={unit}
+        />
+      )}
+    </ScrollView>
   );
 }
