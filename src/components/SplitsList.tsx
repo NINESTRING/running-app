@@ -1,7 +1,7 @@
 import { View } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { formatPace } from '@/lib/geo';
-import { splitPaceSec, type Split } from '@/lib/splits';
+import { formatElevationDelta, splitPaceSec, type Split } from '@/lib/splits';
 
 interface Props {
   completed: Split[];
@@ -60,9 +60,7 @@ export function SplitsList({ completed, current, splitDistanceM, unit }: Props) 
             </View>
             {showElevation && (
               <Text className="w-16 text-right text-sm text-muted-foreground">
-                {split.elevationDeltaM === null
-                  ? '—'
-                  : `${Math.round(split.elevationDeltaM)} m`}
+                {formatElevationDelta(split.elevationDeltaM)}
               </Text>
             )}
           </View>

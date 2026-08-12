@@ -179,6 +179,13 @@ export function liveSplitPaceSec(
   );
 }
 
+/** 구간 고도 변화 표기: 상승 +N m, 하강 -N m, 0은 무부호, null은 — */
+export function formatElevationDelta(deltaM: number | null): string {
+  if (deltaM === null) return '—';
+  const r = Math.round(deltaM);
+  return r > 0 ? `+${r} m` : `${r === 0 ? 0 : r} m`;
+}
+
 /** 총 상승고도: 스무딩 후 양(+)의 변화만 합산. 유효 고도가 2개 미만이면 null */
 export function elevationGainM(groups: RoutePoint[][]): number | null {
   const alts = smoothAltitudes(groups.flat()).filter(

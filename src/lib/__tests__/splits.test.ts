@@ -3,6 +3,7 @@ import {
   computeSplits,
   elevationGainM,
   elevationProfile,
+  formatElevationDelta,
   liveSplitPaceSec,
   partitionPoints,
   smoothAltitudes,
@@ -189,6 +190,25 @@ describe('liveSplitPaceSec', () => {
 
   it('null 구간은 null', () => {
     expect(liveSplitPaceSec(null, 1000, 10)).toBeNull();
+  });
+});
+
+describe('formatElevationDelta', () => {
+  it('상승은 + 부호를 붙인다', () => {
+    expect(formatElevationDelta(4.4)).toBe('+4 m');
+  });
+
+  it('하강은 - 부호 그대로', () => {
+    expect(formatElevationDelta(-5.3)).toBe('-5 m');
+  });
+
+  it('반올림해 0이면 부호 없이 0 m', () => {
+    expect(formatElevationDelta(0.2)).toBe('0 m');
+    expect(formatElevationDelta(-0.4)).toBe('0 m');
+  });
+
+  it('null이면 —', () => {
+    expect(formatElevationDelta(null)).toBe('—');
   });
 });
 
