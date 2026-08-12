@@ -39,6 +39,7 @@ export type Database = {
           duration_sec: number
           id: string
           route: unknown
+          route_points: Json | null
           started_at: string
           steps: number | null
           user_id: string
@@ -49,6 +50,7 @@ export type Database = {
           duration_sec: number
           id?: string
           route?: unknown
+          route_points?: Json | null
           started_at: string
           steps?: number | null
           user_id?: string
@@ -59,6 +61,7 @@ export type Database = {
           duration_sec?: number
           id?: string
           route?: unknown
+          route_points?: Json | null
           started_at?: string
           steps?: number | null
           user_id?: string
@@ -74,6 +77,7 @@ export type Database = {
           duration_sec: number | null
           id: string | null
           route_geojson: string | null
+          route_points: Json | null
           started_at: string | null
           steps: number | null
           user_id: string | null
@@ -84,6 +88,7 @@ export type Database = {
           duration_sec?: number | null
           id?: string | null
           route_geojson?: never
+          route_points?: Json | null
           started_at?: string | null
           steps?: number | null
           user_id?: string | null
@@ -94,6 +99,7 @@ export type Database = {
           duration_sec?: number | null
           id?: string | null
           route_geojson?: never
+          route_points?: Json | null
           started_at?: string | null
           steps?: number | null
           user_id?: string | null
