@@ -36,7 +36,7 @@
 
 ## 개인 기록 카드화 — `src/components/PersonalRecordsSection.tsx`
 
-- 루트를 `Card`(`mx-4 mt-4`)로 교체, "개인 기록" 타이틀은 `CardTitle`(`px-6 pt-0` 조정)로 카드 안에.
+- 루트를 `Card`(`mx-4 mt-4 gap-4 py-4`)로 교체, "개인 기록" 타이틀은 `CardTitle`(`px-4 text-xl font-bold`)로 카드 안에.
 - 배지 그리드는 카드 내부(`CardContent` 또는 동급 패딩)로 이동. 하단 `Separator` 제거 — 카드 경계가 구분 역할.
 - props·배지 구성·탭 동작 변경 없음.
 
