@@ -1,10 +1,21 @@
-import type { RoutePoint } from '../../types/run';
-import { bestSegmentTimeSec } from '../records';
+import type { RoutePoint, RunRecord } from '../../types/run';
+import { bestSegmentTimeSec, personalRecords } from '../records';
 
 // 적도를 따라 경도로만 이동하면 haversine 거리가 정확히 비례한다
 const M_PER_DEG = (6371000 * Math.PI) / 180;
 function pt(m: number, sec: number): RoutePoint {
   return { latitude: 0, longitude: m / M_PER_DEG, altitude: null, timestamp: sec * 1000 };
+}
+
+function run(partial: Partial<RunRecord> & Pick<RunRecord, 'id' | 'startedAt'>): RunRecord {
+  return {
+    durationSec: 0,
+    distanceM: 0,
+    steps: null,
+    routeGeojson: null,
+    routePoints: null,
+    ...partial,
+  };
 }
 
 describe('bestSegmentTimeSec', () => {
@@ -42,5 +53,68 @@ describe('bestSegmentTimeSec', () => {
     // 10s → 5s(역행, 델타 0 처리) → 20s
     const seg = [pt(0, 10), pt(500, 5), pt(1000, 20)];
     expect(bestSegmentTimeSec([seg], 1000)).toBeCloseTo(15, 3);
+  });
+});
+
+describe('personalRecords', () => {
+  it('빈 배열이면 전부 null', () => {
+    const r = personalRecords([]);
+    expect(r).toEqual({
+      longestDistance: null,
+      longestDuration: null,
+      best1k: null,
+      best1mi: null,
+      best5k: null,
+      best10k: null,
+      bestHalf: null,
+      bestFull: null,
+    });
+  });
+
+  it('최장 거리·시간을 선택하고 동률이면 오래된 기록 유지', () => {
+    const runs = [
+      run({ id: 'b', startedAt: '2026-02-01T07:00:00+09:00', distanceM: 5000, durationSec: 1500 }),
+      run({ id: 'a', startedAt: '2026-01-01T07:00:00+09:00', distanceM: 5000, durationSec: 1200 }),
+      run({ id: 'c', startedAt: '2026-03-01T07:00:00+09:00', distanceM: 3000, durationSec: 1500 }),
+    ];
+    const r = personalRecords(runs);
+    expect(r.longestDistance).toMatchObject({ runId: 'a', value: 5000 }); // 동률 → 오래된 a
+    expect(r.longestDuration).toMatchObject({ runId: 'b', value: 1500 }); // 동률 → b(2월) < c(3월)
+  });
+
+  it('routePoints 없는 기록은 평균 페이스 환산으로 폴백', () => {
+    const runs = [
+      run({ id: 'a', startedAt: '2026-01-01T07:00:00+09:00', distanceM: 5000, durationSec: 1500 }),
+    ];
+    const r = personalRecords(runs);
+    expect(r.best1k?.value).toBeCloseTo(300, 3); // 1500 × 1000/5000
+    expect(r.best5k?.value).toBeCloseTo(1500, 3);
+    expect(r.best10k).toBeNull(); // 거리 미달
+    expect(r.bestHalf).toBeNull();
+    expect(r.bestFull).toBeNull();
+  });
+
+  it('routePoints가 있으면 롤링 윈도우가 폴백보다 우선', () => {
+    // 전체 2000m/600초(평균 300초/km)지만 후반 1000m는 240초
+    const seg = [pt(0, 0), pt(1000, 360), pt(2000, 600)];
+    const runs = [
+      run({
+        id: 'a',
+        startedAt: '2026-01-01T07:00:00+09:00',
+        distanceM: 2000,
+        durationSec: 600,
+        routePoints: [seg],
+      }),
+    ];
+    expect(personalRecords(runs).best1k?.value).toBeCloseTo(240, 3);
+  });
+
+  it('여러 러닝 중 최단 시간을 선택하고 동률이면 오래된 기록 유지', () => {
+    const runs = [
+      run({ id: 'new', startedAt: '2026-02-01T07:00:00+09:00', distanceM: 1000, durationSec: 300 }),
+      run({ id: 'old', startedAt: '2026-01-01T07:00:00+09:00', distanceM: 1000, durationSec: 300 }),
+      run({ id: 'slow', startedAt: '2026-03-01T07:00:00+09:00', distanceM: 1000, durationSec: 400 }),
+    ];
+    expect(personalRecords(runs).best1k).toMatchObject({ runId: 'old', value: 300 });
   });
 });
