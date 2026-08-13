@@ -154,14 +154,30 @@ export async function getRun(id: string): Promise<RunRecord | null> {
   }
 }
 
-/** 기록 삭제. 실패(에러·예외·supabase 미설정) 시 false. RLS로 본인 기록만 삭제됨. */
-export async function deleteRun(id: string): Promise<boolean> {
-  if (!supabase) return false;
+/**
+ * 기록 삭제. RLS로 본인 기록만 삭제됨.
+ * .select()로 삭제된 행을 확인한다 — 0행 삭제(RLS 필터·이미 없는 기록)를
+ * 성공으로 오판하면 복구 불가 데이터가 UI에서만 사라지고 서버에 남는다.
+ */
+export async function deleteRun(
+  id: string
+): Promise<{ ok: boolean; error?: string }> {
+  if (!supabase) {
+    return { ok: false, error: 'Supabase가 설정되지 않았습니다 (.env 확인)' };
+  }
   try {
-    const { error } = await supabase.from('runs').delete().eq('id', id);
-    return !error;
-  } catch {
-    return false;
+    const { data, error } = await supabase
+      .from('runs')
+      .delete()
+      .eq('id', id)
+      .select('id');
+    if (error) return { ok: false, error: error.message };
+    if (!data || data.length === 0) {
+      return { ok: false, error: '삭제된 기록이 없습니다 (권한 또는 이미 삭제됨)' };
+    }
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }
 }
 
