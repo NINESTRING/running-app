@@ -15,7 +15,7 @@ import type { RoutePoint, RunRecord } from '@/types/run';
 export default function RunDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   // undefined = 로딩 중, null = 조회했지만 없음
-  const [run, setRun] = useState<RunRecord | null | undefined>(undefined);
+  const [run, setRun] = useState<RunRecord | null | undefined>(id ? undefined : null);
   const unit = useSettingsStore((s) => s.unit);
 
   useEffect(() => {
@@ -24,8 +24,6 @@ export default function RunDetailScreen() {
       getRun(id).then((r) => {
         if (!cancelled) setRun(r);
       });
-    } else {
-      setRun(null);
     }
     return () => {
       cancelled = true;
