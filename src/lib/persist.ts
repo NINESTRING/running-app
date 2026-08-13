@@ -1,0 +1,23 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import type { PersistStorage, StorageValue } from 'zustand/middleware';
+
+// zustand의 createJSONStorage는 저장된 문자열을 넘겨받은 뒤 자체적으로 JSON.parse를 수행하는데,
+// 이 파싱은 우리가 감싼 getItem 바깥(persist 내부)에서 일어나 손상된 JSON은 여전히 reject로 전파된다.
+// hydrate()는 그 reject를 조용히 삼키기만 하고 hasHydrated를 true로 만들지 않으므로,
+// 네이티브 읽기 오류든 손상된 JSON이든 이 getItem 안에서 직접 파싱까지 끝내고 실패 시 null을 반환해야
+// 앱이 빈 화면에 영구히 멈추지 않는다.
+export function createSafeStorage<S>(): PersistStorage<S> {
+  return {
+    getItem: async (name) => {
+      try {
+        const raw = await AsyncStorage.getItem(name);
+        if (raw === null) return null;
+        return JSON.parse(raw) as StorageValue<S>;
+      } catch {
+        return null;
+      }
+    },
+    setItem: (name, value) => AsyncStorage.setItem(name, JSON.stringify(value)),
+    removeItem: (name) => AsyncStorage.removeItem(name),
+  };
+}
