@@ -8,6 +8,7 @@ import { SplitsList } from '@/components/SplitsList';
 import { avgCadenceSpm, formatCadence } from '@/lib/cadence';
 import { formatDistance, formatDuration, formatPace, paceSecPerUnit } from '@/lib/geo';
 import { computeSplits, elevationGainM, elevationProfile, splitDistanceFor } from '@/lib/splits';
+import { weatherLabel } from '@/lib/weather';
 import { getRun } from '@/services/runs';
 import { useSettingsStore } from '@/stores/settingsStore';
 import type { RoutePoint, RunRecord } from '@/types/run';
@@ -83,6 +84,9 @@ export default function RunDetailScreen() {
           {formatPace(paceSecPerUnit(run.distanceM, run.durationSec * 1000, unit))}
           {avgCadence !== null && ` · ${formatCadence(avgCadence)} spm`}
           {gain !== null && ` · ↑ ${Math.round(gain)} m`}
+          {run.weatherCode !== null &&
+            run.temperatureC !== null &&
+            ` · ${weatherLabel(run.weatherCode).emoji} ${Math.round(run.temperatureC)}°C`}
         </Text>
       </View>
       {profile.length >= 2 && (

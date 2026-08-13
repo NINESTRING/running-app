@@ -7,6 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { formatDistance, formatDuration } from '@/lib/geo';
 import { personalRecords } from '@/lib/records';
+import { weatherLabel } from '@/lib/weather';
 import { listRuns } from '@/services/runs';
 import { supabase } from '@/services/supabase';
 import { useSettingsStore } from '@/stores/settingsStore';
@@ -86,6 +87,9 @@ export default function HistoryScreen() {
           <Text className="text-muted-foreground">
             {formatDistance(item.distanceM, unit)}{unit} ·{' '}
             {formatDuration(item.durationSec * 1000)}
+            {item.weatherCode !== null &&
+              item.temperatureC !== null &&
+              ` · ${weatherLabel(item.weatherCode).emoji} ${Math.round(item.temperatureC)}°`}
           </Text>
         </Pressable>
       )}
