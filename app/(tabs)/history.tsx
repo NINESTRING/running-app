@@ -101,6 +101,9 @@ export default function HistoryScreen() {
               item.temperatureC !== null &&
               ` · ${weatherLabel(item.weatherCode).emoji} ${Math.round(item.temperatureC)}°`}
           </Text>
+          {item.locationLabel !== null && (
+            <Text className="text-sm text-muted-foreground">{item.locationLabel}</Text>
+          )}
         </Pressable>
       )}
     />

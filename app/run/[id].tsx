@@ -78,6 +78,9 @@ export default function RunDetailScreen() {
         <Text className="text-base font-semibold">
           {new Date(run.startedAt).toLocaleString('ko-KR')}
         </Text>
+        {run.locationLabel !== null && (
+          <Text className="text-sm text-muted-foreground">{run.locationLabel}</Text>
+        )}
         <Text className="text-muted-foreground">
           {formatDistance(run.distanceM, unit)}{unit} ·{' '}
           {formatDuration(run.durationSec * 1000)} ·{' '}
