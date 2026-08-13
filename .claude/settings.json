@@ -17,5 +17,27 @@
     "additionalDirectories": [
       "/Users/ninestring/work/runningapp.v1/node_modules/react-native-maps/ios/AirMaps"
     ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r .session_id | { read -r s; mkdir -p ~/.claude/tmp && git rev-parse HEAD > ~/.claude/tmp/rebuild-base-\"$s\" 2>/dev/null; } || true"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r .session_id | { read -r s; b=$(cat ~/.claude/tmp/rebuild-base-\"$s\" 2>/dev/null); [ -n \"$b\" ] || exit 0; f=$(git diff --name-only \"$b\" -- package.json package-lock.json app.json eas.json ios android 2>/dev/null | tr '\\n' ' '); [ -n \"${f// /}\" ] || exit 0; jq -n --arg m \"📱 네이티브 관련 파일이 변경됐어요 — dev build 재실행(npx expo run:ios)이 필요할 수 있습니다: $f\" '{systemMessage:$m}'; } || true"
+          }
+        ]
+      }
+    ]
   }
 }
