@@ -1,6 +1,6 @@
 import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ScrollView, View } from 'react-native';
+import { ActivityIndicator, ScrollView, View } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { ElevationChart } from '@/components/ElevationChart';
 import { RouteMap } from '@/components/RouteMap';
@@ -14,7 +14,8 @@ import type { RoutePoint, RunRecord } from '@/types/run';
 
 export default function RunDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const [run, setRun] = useState<RunRecord | null>(null);
+  // undefined = 로딩 중, null = 조회했지만 없음
+  const [run, setRun] = useState<RunRecord | null | undefined>(undefined);
   const unit = useSettingsStore((s) => s.unit);
 
   useEffect(() => {
@@ -23,16 +24,26 @@ export default function RunDetailScreen() {
       getRun(id).then((r) => {
         if (!cancelled) setRun(r);
       });
+    } else {
+      setRun(null);
     }
     return () => {
       cancelled = true;
     };
   }, [id]);
 
-  if (!run) {
+  if (run === undefined) {
     return (
       <View className="flex-1 items-center justify-center bg-background">
-        <Text className="text-muted-foreground">기록을 불러오는 중이거나 찾을 수 없습니다.</Text>
+        <ActivityIndicator />
+      </View>
+    );
+  }
+
+  if (run === null) {
+    return (
+      <View className="flex-1 items-center justify-center bg-background">
+        <Text className="text-muted-foreground">기록을 찾을 수 없습니다.</Text>
       </View>
     );
   }
