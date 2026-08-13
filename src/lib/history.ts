@@ -44,3 +44,13 @@ export function groupRunsByMonth(runs: RunRecord[]): RunSection[] {
   }
   return sections;
 }
+
+/** 위치 라벨 백필용 시작 좌표. 원본 시계열 우선, 구버전 기록은 GeoJSON 폴백. 경로 없으면 null. */
+export function startCoords(
+  run: RunRecord
+): { latitude: number; longitude: number } | null {
+  const p = run.routePoints?.[0]?.[0];
+  if (p) return { latitude: p.latitude, longitude: p.longitude };
+  const c = run.routeGeojson?.coordinates[0];
+  return c ? { latitude: c[1], longitude: c[0] } : null;
+}

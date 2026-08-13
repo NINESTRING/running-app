@@ -1,4 +1,5 @@
 import { useFocusEffect, useRouter } from 'expo-router';
+import type { Dispatch, SetStateAction } from 'react';
 import { useCallback, useMemo, useState } from 'react';
 import { Pressable, SectionList, View } from 'react-native';
 import { PersonalRecordsSection } from '@/components/PersonalRecordsSection';
@@ -6,10 +7,11 @@ import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { formatDistance, formatDuration } from '@/lib/geo';
-import { formatRunDay, groupRunsByMonth, timeOfDay } from '@/lib/history';
+import { formatRunDay, groupRunsByMonth, startCoords, timeOfDay } from '@/lib/history';
 import { personalRecords } from '@/lib/records';
 import { weatherLabel } from '@/lib/weather';
-import { listRuns } from '@/services/runs';
+import { fetchLocationLabel } from '@/services/geocoding';
+import { listRuns, updateRunLocationLabel } from '@/services/runs';
 import { supabase } from '@/services/supabase';
 import { useSettingsStore } from '@/stores/settingsStore';
 import type { RunRecord } from '@/types/run';
@@ -23,7 +25,9 @@ export default function HistoryScreen() {
     useCallback(() => {
       let cancelled = false;
       listRuns().then((r) => {
-        if (!cancelled) setRuns(r);
+        if (cancelled) return;
+        setRuns(r);
+        void backfillLocationLabels(r, () => cancelled, setRuns);
       });
       return () => {
         cancelled = true;
@@ -108,4 +112,30 @@ export default function HistoryScreen() {
       )}
     />
   );
+}
+
+// 기기 지오코더 부하를 고려한 포커스당 백필 상한
+const BACKFILL_LIMIT_PER_FOCUS = 5;
+
+// 라벨 없는 과거 기록을 화면이 떠 있는 동안 조용히 채운다 — 실패는 무시(다음 포커스에서 재시도)
+async function backfillLocationLabels(
+  runs: RunRecord[],
+  isCancelled: () => boolean,
+  setRuns: Dispatch<SetStateAction<RunRecord[] | null>>
+) {
+  const targets = runs
+    .filter((r) => r.locationLabel === null && startCoords(r) !== null)
+    .slice(0, BACKFILL_LIMIT_PER_FOCUS); // listRuns가 최신순이므로 최근 기록부터
+  for (const run of targets) {
+    if (isCancelled()) return;
+    const coords = startCoords(run);
+    if (!coords) continue;
+    const label = await fetchLocationLabel(coords.latitude, coords.longitude);
+    if (label === null) continue;
+    if (!(await updateRunLocationLabel(run.id, label))) continue;
+    if (isCancelled()) return;
+    setRuns((prev) =>
+      prev ? prev.map((x) => (x.id === run.id ? { ...x, locationLabel: label } : x)) : prev
+    );
+  }
 }

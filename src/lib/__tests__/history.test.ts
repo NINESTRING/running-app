@@ -1,5 +1,5 @@
 import type { RunRecord } from '../../types/run';
-import { formatRunDay, groupRunsByMonth, timeOfDay } from '../history';
+import { formatRunDay, groupRunsByMonth, startCoords, timeOfDay } from '../history';
 
 function run(partial: Partial<RunRecord> & Pick<RunRecord, 'id' | 'startedAt'>): RunRecord {
   const defaults = {
@@ -70,5 +70,41 @@ describe('groupRunsByMonth', () => {
     ];
     const sections = groupRunsByMonth(runs);
     expect(sections.map((s) => s.title)).toEqual(['2026년 8월', '2025년 8월']);
+  });
+});
+
+describe('startCoords', () => {
+  it('원본 시계열의 첫 포인트를 반환한다', () => {
+    const r = run({
+      id: 'r1',
+      startedAt: '2026-08-13T07:00:00+09:00',
+      routePoints: [[{ latitude: 37.49, longitude: 127.01, altitude: null, timestamp: 1000 }]],
+      routeGeojson: { type: 'LineString', coordinates: [[126.9, 37.5]] },
+    });
+    expect(startCoords(r)).toEqual({ latitude: 37.49, longitude: 127.01 });
+  });
+
+  it('시계열이 없으면 GeoJSON 첫 좌표로 폴백한다 ([lng, lat] 순서 뒤집기)', () => {
+    const r = run({
+      id: 'r2',
+      startedAt: '2026-08-13T07:00:00+09:00',
+      routeGeojson: { type: 'LineString', coordinates: [[127.01, 37.49]] },
+    });
+    expect(startCoords(r)).toEqual({ latitude: 37.49, longitude: 127.01 });
+  });
+
+  it('첫 그룹이 비어 있으면 GeoJSON으로 폴백한다', () => {
+    const r = run({
+      id: 'r3',
+      startedAt: '2026-08-13T07:00:00+09:00',
+      routePoints: [[]],
+      routeGeojson: { type: 'LineString', coordinates: [[127.01, 37.49]] },
+    });
+    expect(startCoords(r)).toEqual({ latitude: 37.49, longitude: 127.01 });
+  });
+
+  it('경로가 전혀 없으면 null', () => {
+    const r = run({ id: 'r4', startedAt: '2026-08-13T07:00:00+09:00' });
+    expect(startCoords(r)).toBeNull();
   });
 });
