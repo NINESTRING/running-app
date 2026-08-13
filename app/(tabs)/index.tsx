@@ -41,6 +41,7 @@ import {
 } from '@/services/pedometer';
 import { saveRun } from '@/services/runs';
 import { fetchCurrentWeather, resolveRunWeather } from '@/services/weather';
+import { fetchLocationLabel } from '@/services/geocoding';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { elapsedMs, useRunStore } from '@/stores/runStore';
 
@@ -172,7 +173,8 @@ export default function HomeScreen() {
     const s = useRunStore.getState();
     const stoppedAt = Date.now();
     const durationSec = Math.round(elapsedMs(s, 0) / 1000);
-    const [steps, weather] = await Promise.all([
+    const firstPoint = s.points[0];
+    const [steps, weather, locationLabel] = await Promise.all([
       // iOS: CMPedometer 이력으로 백필 (화면 꺼짐 구간 보정). 실패·Android는 라이브 카운트.
       backfillSteps(s.segments).then((b) => b ?? s.steps),
       // 시작 시 조회 실패 시 마지막 GPS 좌표로 1회 재시도 — 백필과 병렬이라 저장을 추가 지연시키지 않음
@@ -180,6 +182,10 @@ export default function HomeScreen() {
         { weatherCode: s.weatherCode, temperatureC: s.temperatureC },
         s.points[s.points.length - 1]
       ),
+      // 시작 지점 행정구역 라벨 — 위치는 시간에 안 민감하므로 저장 시점에 조회
+      firstPoint
+        ? fetchLocationLabel(firstPoint.latitude, firstPoint.longitude)
+        : Promise.resolve<string | null>(null),
     ]);
     const result = await saveRun({
       startedAt: s.startedAt ?? stoppedAt,
@@ -190,6 +196,7 @@ export default function HomeScreen() {
       segments: s.segments,
       weatherCode: weather.weatherCode,
       temperatureC: weather.temperatureC,
+      locationLabel,
     });
     if (result.ok) {
       useRunStore.getState().reset();
