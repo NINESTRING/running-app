@@ -15,9 +15,12 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
+import { GoalDialog } from '@/components/GoalDialog';
 import { RouteMap, type RouteMapHandle } from '@/components/RouteMap';
 import { cadenceSpm, formatCadence } from '@/lib/cadence';
-import { formatDistance, formatDuration, formatPace, paceSecPerUnit } from '@/lib/geo';
+import { formatDistance, formatDuration, formatPace, METERS_PER_MILE, paceSecPerUnit } from '@/lib/geo';
+import { goalDeltaM, goalDeltaStatus, goalSummary } from '@/lib/goal';
+import { cn } from '@/lib/utils';
 import {
   computeSplits,
   partitionPoints,
@@ -42,6 +45,7 @@ import {
 import { saveRun } from '@/services/runs';
 import { fetchCurrentWeather, resolveRunWeather } from '@/services/weather';
 import { fetchLocationLabel } from '@/services/geocoding';
+import { useGoalStore } from '@/stores/goalStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { elapsedMs, useRunStore } from '@/stores/runStore';
 
@@ -60,6 +64,9 @@ export default function HomeScreen() {
   const stepSamples = useRunStore((s) => s.stepSamples);
   const segments = useRunStore((s) => s.segments);
   const unit = useSettingsStore((s) => s.unit);
+  const goalPaceSec = useGoalStore((s) => s.paceSecPerUnit);
+  const goalDistanceUnits = useGoalStore((s) => s.distanceUnits);
+  const [goalOpen, setGoalOpen] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const [permissionDenied, setPermissionDenied] = useState(false);
   const [dialog, setDialog] = useState<DialogState>(null);
@@ -103,6 +110,20 @@ export default function HomeScreen() {
   }, [status]);
 
   const elapsed = elapsedMs({ accumulatedMs, segmentStartedAt }, now);
+
+  // 목표 페이스 대비 편차 — 30초 미만이면 null(초반 가드)
+  const goalDelta =
+    goalPaceSec !== null && (status === 'running' || status === 'paused')
+      ? goalDeltaM({ distanceM, elapsedMs: elapsed, paceSecPerUnit: goalPaceSec, unit })
+      : null;
+
+  // 거리 목표 진행 표시 (idle에서는 요약 줄이 있으므로 숨김)
+  const unitM = unit === 'mi' ? METERS_PER_MILE : 1000;
+  const showDistanceGoal = goalDistanceUnits !== null && status !== 'idle';
+  const distanceValue = showDistanceGoal
+    ? `${formatDistance(distanceM, unit)} / ${goalDistanceUnits.toFixed(2)}`
+    : formatDistance(distanceM, unit);
+  const distanceReached = showDistanceGoal && distanceM >= goalDistanceUnits * unitM;
 
   // 러닝·일시정지 중 현재 구간 번호와 실시간 구간 페이스
   const splitDistanceM = splitDistanceFor(unit);
@@ -240,8 +261,25 @@ export default function HomeScreen() {
                 </Text>
               </Pressable>
             )}
+            {status === 'idle' && (
+              <View className="flex-row items-center justify-between">
+                <Text className="text-sm text-muted-foreground">
+                  {goalSummary(goalPaceSec, goalDistanceUnits, unit)}
+                </Text>
+                <Button size="sm" variant="outline" onPress={() => setGoalOpen(true)}>
+                  <Text>목표</Text>
+                </Button>
+              </View>
+            )}
             <View className="flex-row justify-around">
-              <Metric label={`거리(${unit})`} value={formatDistance(distanceM, unit)} />
+              <Metric
+                label={`거리(${unit})`}
+                value={distanceValue}
+                valueClassName={cn(
+                  showDistanceGoal && 'text-lg',
+                  distanceReached && 'text-green-600 dark:text-green-500',
+                )}
+              />
               <Metric label="시간" value={formatDuration(elapsed)} />
               <Metric label={`페이스(/${unit})`} value={formatPace(paceSecPerUnit(distanceM, elapsed, unit))} />
               <Metric label="케이던스" value={formatCadence(cadenceSpm(stepSamples, now))} />
@@ -253,6 +291,7 @@ export default function HomeScreen() {
                 )}`}
               </Text>
             )}
+            {goalDelta !== null && <GoalDeltaLine deltaM={goalDelta} />}
             <View className="flex-row justify-center gap-3">
               {status === 'idle' && (
                 <Button size="lg" onPress={onStart}>
@@ -288,6 +327,8 @@ export default function HomeScreen() {
           </CardContent>
         </Card>
       </View>
+
+      <GoalDialog open={goalOpen} onOpenChange={setGoalOpen} />
 
       <AlertDialog
         open={dialog !== null}
@@ -352,11 +393,32 @@ export default function HomeScreen() {
   );
 }
 
-function Metric({ label, value }: { label: string; value: string }) {
+function Metric({
+  label,
+  value,
+  valueClassName,
+}: {
+  label: string;
+  value: string;
+  valueClassName?: string;
+}) {
   return (
     <View className="items-center">
-      <Text className="text-2xl font-bold">{value}</Text>
+      <Text className={cn('text-2xl font-bold', valueClassName)}>{value}</Text>
       <Text className="text-xs text-muted-foreground">{label}</Text>
     </View>
+  );
+}
+
+function GoalDeltaLine({ deltaM }: { deltaM: number }) {
+  const status = goalDeltaStatus(deltaM);
+  if (status === 'onPace') {
+    return <Text className="text-center text-sm text-muted-foreground">목표 페이스 유지</Text>;
+  }
+  const m = Math.round(Math.abs(deltaM));
+  return status === 'behind' ? (
+    <Text className="text-center text-sm font-medium text-destructive">{`▼ ${m}m 뒤쳐짐`}</Text>
+  ) : (
+    <Text className="text-center text-sm font-medium text-green-600 dark:text-green-500">{`▲ ${m}m 앞섬`}</Text>
   );
 }
