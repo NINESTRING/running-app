@@ -154,6 +154,17 @@ export async function getRun(id: string): Promise<RunRecord | null> {
   }
 }
 
+/** 기록 삭제. 실패(에러·예외·supabase 미설정) 시 false. RLS로 본인 기록만 삭제됨. */
+export async function deleteRun(id: string): Promise<boolean> {
+  if (!supabase) return false;
+  try {
+    const { error } = await supabase.from('runs').delete().eq('id', id);
+    return !error;
+  } catch {
+    return false;
+  }
+}
+
 /** 과거 기록 lazy 백필용 — location_label만 갱신. 실패 시 false (다음 기회에 재시도). */
 export async function updateRunLocationLabel(
   id: string,
