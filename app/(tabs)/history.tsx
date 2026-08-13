@@ -1,10 +1,12 @@
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { FlatList, Pressable, View } from 'react-native';
+import { PersonalRecordsSection } from '@/components/PersonalRecordsSection';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { formatDistance, formatDuration } from '@/lib/geo';
+import { personalRecords } from '@/lib/records';
 import { listRuns } from '@/services/runs';
 import { supabase } from '@/services/supabase';
 import { useSettingsStore } from '@/stores/settingsStore';
@@ -26,6 +28,9 @@ export default function HistoryScreen() {
       };
     }, [])
   );
+
+  // 롤링 윈도우 계산이 목록 렌더보다 무거우므로 runs 변경 시에만 재계산
+  const records = useMemo(() => (runs && runs.length > 0 ? personalRecords(runs) : null), [runs]);
 
   if (!supabase) {
     return (
@@ -61,6 +66,15 @@ export default function HistoryScreen() {
       data={runs}
       keyExtractor={(r) => r.id}
       ItemSeparatorComponent={() => <Separator />}
+      ListHeaderComponent={
+        records ? (
+          <PersonalRecordsSection
+            records={records}
+            unit={unit}
+            onPressRun={(runId) => router.push(`/run/${runId}`)}
+          />
+        ) : null
+      }
       renderItem={({ item }) => (
         <Pressable
           className="gap-1 p-4 active:bg-accent"
