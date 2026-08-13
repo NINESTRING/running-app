@@ -2,7 +2,7 @@ import type { RunRecord } from '../../types/run';
 import { formatRunDay, groupRunsByMonth, timeOfDay } from '../history';
 
 function run(partial: Partial<RunRecord> & Pick<RunRecord, 'id' | 'startedAt'>): RunRecord {
-  return {
+  const defaults = {
     durationSec: 0,
     distanceM: 0,
     steps: null,
@@ -10,8 +10,9 @@ function run(partial: Partial<RunRecord> & Pick<RunRecord, 'id' | 'startedAt'>):
     routePoints: null,
     weatherCode: null,
     temperatureC: null,
-    ...partial,
+    locationLabel: null,
   };
+  return { ...defaults, ...partial } as RunRecord;
 }
 
 describe('timeOfDay', () => {

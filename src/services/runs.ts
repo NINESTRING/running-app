@@ -12,6 +12,7 @@ export interface FinishedRun {
   segments: TimeRange[]; // 완료된 러닝 세그먼트 — 일시정지 제외 구간 계산용
   weatherCode: number | null; // 러닝 시작 시점 날씨 (시작 시 조회 실패 시 종료 시점 값). WMO weather code. null = 조회 실패
   temperatureC: number | null; // 러닝 시작 시점 기온 (시작 시 조회 실패 시 종료 시점 값). °C
+  locationLabel: string | null; // 시작 지점 행정구역 라벨. null = 조회 실패·경로 없음
 }
 
 // [t, lat, lng, alt] 튜플의 세그먼트별 배열 (route_points JSONB 포맷)
@@ -94,6 +95,7 @@ export function rowToRunRecord(row: RunRow): RunRecord | null {
     routePoints: parseRoutePoints(row.route_points),
     weatherCode: row.weather_code ?? null,
     temperatureC: row.temperature_c ?? null,
+    locationLabel: row.location_label ?? null,
   };
 }
 
@@ -113,6 +115,7 @@ export async function saveRun(
       route_points: segmentsToJson(run.points, run.segments),
       weather_code: run.weatherCode,
       temperature_c: run.temperatureC,
+      location_label: run.locationLabel,
     });
     return error ? { ok: false, error: error.message } : { ok: true };
   } catch (e) {
@@ -148,5 +151,22 @@ export async function getRun(id: string): Promise<RunRecord | null> {
     return rowToRunRecord(data);
   } catch {
     return null;
+  }
+}
+
+/** 과거 기록 lazy 백필용 — location_label만 갱신. 실패 시 false (다음 기회에 재시도). */
+export async function updateRunLocationLabel(
+  id: string,
+  label: string
+): Promise<boolean> {
+  if (!supabase) return false;
+  try {
+    const { error } = await supabase
+      .from('runs')
+      .update({ location_label: label })
+      .eq('id', id);
+    return !error;
+  } catch {
+    return false;
   }
 }

@@ -79,6 +79,7 @@ describe('rowToRunRecord', () => {
     route_points: null,
     weather_code: null as number | null,
     temperature_c: null as number | null,
+    location_label: null as string | null,
     created_at: '2026-08-03T01:10:00Z',
   };
 
@@ -143,5 +144,16 @@ describe('rowToRunRecord', () => {
     expect(rec).not.toBeNull();
     expect(rec?.weatherCode).toBeNull();
     expect(rec?.temperatureC).toBeNull();
+  });
+
+  it('location_label을 매핑한다', () => {
+    const rec = rowToRunRecord({ ...baseRow, location_label: '서울 강남구 서초동' });
+    expect(rec?.locationLabel).toBe('서울 강남구 서초동');
+  });
+
+  it('location_label이 null이어도 레코드는 유지 (구버전·미조회 기록)', () => {
+    const rec = rowToRunRecord(baseRow);
+    expect(rec).not.toBeNull();
+    expect(rec?.locationLabel).toBeNull();
   });
 });
