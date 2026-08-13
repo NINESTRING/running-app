@@ -5,6 +5,7 @@ import {
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
+  AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
@@ -56,6 +57,7 @@ export function GoalDialog({
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>목표 설정</AlertDialogTitle>
+          <AlertDialogDescription>목표는 이 기기에만 저장됩니다.</AlertDialogDescription>
         </AlertDialogHeader>
         <View className="gap-4 py-2">
           <GoalRow
@@ -103,7 +105,9 @@ function GoalRow({
 }) {
   return (
     <View className="flex-row items-center justify-between gap-3">
-      <Text className="text-sm text-muted-foreground">{label}</Text>
+      <Text className="flex-1 text-sm text-muted-foreground" numberOfLines={1}>
+        {label}
+      </Text>
       {valueText === null ? (
         <Button size="sm" variant="outline" onPress={onToggle}>
           <Text>설정</Text>
@@ -118,7 +122,7 @@ function GoalRow({
           >
             <Text>−</Text>
           </Button>
-          <Text className="w-16 text-center text-base font-semibold">{valueText}</Text>
+          <Text className="w-14 text-center text-base font-semibold">{valueText}</Text>
           <Button
             size="icon"
             variant="outline"

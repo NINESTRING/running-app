@@ -16,11 +16,13 @@ describe('goalDeltaM', () => {
     // 6'00"/km 목표, 60초 경과 → 기대 166.67m, 실제 100m → 약 -66.7m
     const d = goalDeltaM({ distanceM: 100, elapsedMs: 60_000, paceSecPerUnit: 360, unit: 'km' });
     expect(d).toBeCloseTo(100 - (60 / 360) * 1000, 1);
+    expect(d).toBeLessThan(0);
   });
 
   test('목표보다 빠르면 양수(앞섬)', () => {
     const d = goalDeltaM({ distanceM: 250, elapsedMs: 60_000, paceSecPerUnit: 360, unit: 'km' });
     expect(d).toBeCloseTo(250 - (60 / 360) * 1000, 1);
+    expect(d).toBeGreaterThan(0);
   });
 
   test('경과 30초 미만이면 null(초반 가드)', () => {
