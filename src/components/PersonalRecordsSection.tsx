@@ -1,8 +1,7 @@
 import { View } from 'react-native';
 
 import { RecordBadge } from '@/components/RecordBadge';
-import { Separator } from '@/components/ui/separator';
-import { Text } from '@/components/ui/text';
+import { Card, CardTitle } from '@/components/ui/card';
 import { formatDistance, formatDuration } from '@/lib/geo';
 import type { PersonalRecords, RecordEntry } from '@/lib/records';
 
@@ -47,9 +46,9 @@ export function PersonalRecordsSection({ records, unit, onPressRun }: Props) {
   ];
 
   return (
-    <View className="pb-2">
-      <Text className="p-4 text-xl font-bold">개인 기록</Text>
-      <View className="flex-row flex-wrap">
+    <Card className="mx-4 mt-4 gap-4 py-4">
+      <CardTitle className="px-4 text-xl font-bold">개인 기록</CardTitle>
+      <View className="flex-row flex-wrap px-1">
         {badges.map((b) => {
           const entry = b.entry;
           return (
@@ -67,7 +66,6 @@ export function PersonalRecordsSection({ records, unit, onPressRun }: Props) {
           );
         })}
       </View>
-      <Separator />
-    </View>
+    </Card>
   );
 }

@@ -1,11 +1,12 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { FlatList, Pressable, View } from 'react-native';
+import { Pressable, SectionList, View } from 'react-native';
 import { PersonalRecordsSection } from '@/components/PersonalRecordsSection';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { formatDistance, formatDuration } from '@/lib/geo';
+import { formatRunDay, groupRunsByMonth, timeOfDay } from '@/lib/history';
 import { personalRecords } from '@/lib/records';
 import { weatherLabel } from '@/lib/weather';
 import { listRuns } from '@/services/runs';
@@ -32,6 +33,7 @@ export default function HistoryScreen() {
 
   // 롤링 윈도우 계산이 목록 렌더보다 무거우므로 runs 변경 시에만 재계산
   const records = useMemo(() => (runs && runs.length > 0 ? personalRecords(runs) : null), [runs]);
+  const sections = useMemo(() => (runs ? groupRunsByMonth(runs) : []), [runs]);
 
   if (!supabase) {
     return (
@@ -62,27 +64,35 @@ export default function HistoryScreen() {
   }
 
   return (
-    <FlatList
+    <SectionList
       className="bg-background"
-      data={runs}
+      sections={sections}
       keyExtractor={(r) => r.id}
       ItemSeparatorComponent={() => <Separator />}
       ListHeaderComponent={
-        records ? (
-          <PersonalRecordsSection
-            records={records}
-            unit={unit}
-            onPressRun={(runId) => router.push(`/run/${runId}`)}
-          />
-        ) : null
+        <View className="pb-2">
+          {records ? (
+            <PersonalRecordsSection
+              records={records}
+              unit={unit}
+              onPressRun={(runId) => router.push(`/run/${runId}`)}
+            />
+          ) : null}
+          <Text className="px-4 pt-6 text-xl font-bold">러닝 기록</Text>
+        </View>
       }
+      renderSectionHeader={({ section }) => (
+        <Text className="bg-background px-4 pb-1 pt-3 text-sm font-semibold text-muted-foreground">
+          {section.title}
+        </Text>
+      )}
       renderItem={({ item }) => (
         <Pressable
           className="gap-1 p-4 active:bg-accent"
           onPress={() => router.push(`/run/${item.id}`)}
         >
           <Text className="text-base font-semibold">
-            {new Date(item.startedAt).toLocaleDateString('ko-KR')}
+            {formatRunDay(item.startedAt)} · {timeOfDay(item.startedAt)} 러닝
           </Text>
           <Text className="text-muted-foreground">
             {formatDistance(item.distanceM, unit)}{unit} ·{' '}
