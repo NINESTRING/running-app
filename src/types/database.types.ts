@@ -42,7 +42,9 @@ export type Database = {
           route_points: Json | null
           started_at: string
           steps: number | null
+          temperature_c: number | null
           user_id: string
+          weather_code: number | null
         }
         Insert: {
           created_at?: string
@@ -53,7 +55,9 @@ export type Database = {
           route_points?: Json | null
           started_at: string
           steps?: number | null
+          temperature_c?: number | null
           user_id?: string
+          weather_code?: number | null
         }
         Update: {
           created_at?: string
@@ -64,7 +68,9 @@ export type Database = {
           route_points?: Json | null
           started_at?: string
           steps?: number | null
+          temperature_c?: number | null
           user_id?: string
+          weather_code?: number | null
         }
         Relationships: []
       }
@@ -80,7 +86,9 @@ export type Database = {
           route_points: Json | null
           started_at: string | null
           steps: number | null
+          temperature_c: number | null
           user_id: string | null
+          weather_code: number | null
         }
         Insert: {
           created_at?: string | null
@@ -91,7 +99,9 @@ export type Database = {
           route_points?: Json | null
           started_at?: string | null
           steps?: number | null
+          temperature_c?: number | null
           user_id?: string | null
+          weather_code?: number | null
         }
         Update: {
           created_at?: string | null
@@ -102,7 +112,9 @@ export type Database = {
           route_points?: Json | null
           started_at?: string | null
           steps?: number | null
+          temperature_c?: number | null
           user_id?: string | null
+          weather_code?: number | null
         }
         Relationships: []
       }

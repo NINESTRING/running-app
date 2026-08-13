@@ -77,6 +77,8 @@ describe('rowToRunRecord', () => {
     route_geojson: null,
     steps: null as number | null,
     route_points: null,
+    weather_code: null as number | null,
+    temperature_c: null as number | null,
     created_at: '2026-08-03T01:10:00Z',
   };
 
