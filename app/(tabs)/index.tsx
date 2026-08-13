@@ -189,15 +189,15 @@ export default function HomeScreen() {
     setDialog({ type: 'confirmStop' });
   };
 
-  const onDiscard = async () => {
+  // 상태 가드 + 동기 reset: 저장·버리기 동시 탭이나 센서 중지 대기 중 재개로
+  // 폐기가 진행 중인 러닝을 오염시키지 않도록 비동기 정리는 reset 이후로 미룬다.
+  // (addPoint·addStepReading은 status 가드가 있어 늦게 도착한 샘플은 버려진다)
+  const onDiscard = () => {
+    if (useRunStore.getState().status !== 'paused') return;
     setDialog(null);
-    try {
-      await stopTracking();
-    } catch {
-      // 추적 중지 실패해도 기록 폐기는 계속 진행
-    }
     stopStepCounting();
     useRunStore.getState().reset();
+    stopTracking().catch(() => {});
   };
 
   const onStop = async () => {
