@@ -243,3 +243,36 @@ describe('runStore 케이던스', () => {
     expect(s.segments).toEqual([]);
   });
 });
+
+describe('setWeather', () => {
+  beforeEach(() => useRunStore.getState().reset());
+
+  it('startedAt이 일치하면 날씨를 반영한다', () => {
+    useRunStore.getState().start(1000);
+    useRunStore.getState().setWeather(1000, 3, 21.4);
+    expect(useRunStore.getState().weatherCode).toBe(3);
+    expect(useRunStore.getState().temperatureC).toBe(21.4);
+  });
+
+  it('startedAt이 다르면 무시한다 (늦은 응답이 다음 러닝 오염 방지)', () => {
+    useRunStore.getState().start(1000);
+    useRunStore.getState().setWeather(999, 3, 21.4);
+    expect(useRunStore.getState().weatherCode).toBeNull();
+    expect(useRunStore.getState().temperatureC).toBeNull();
+  });
+
+  it('reset 후에는 무시한다', () => {
+    useRunStore.getState().start(1000);
+    useRunStore.getState().reset();
+    useRunStore.getState().setWeather(1000, 3, 21.4);
+    expect(useRunStore.getState().weatherCode).toBeNull();
+  });
+
+  it('start()가 이전 날씨를 초기화한다', () => {
+    useRunStore.getState().start(1000);
+    useRunStore.getState().setWeather(1000, 3, 21.4);
+    useRunStore.getState().start(2000);
+    expect(useRunStore.getState().weatherCode).toBeNull();
+    expect(useRunStore.getState().temperatureC).toBeNull();
+  });
+});

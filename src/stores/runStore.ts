@@ -21,12 +21,15 @@ export interface RunState {
   lastStepReading: number; // pedometer 구독 누적치의 마지막 값 (델타 계산용)
   stepSamples: StepSample[]; // 최근 60초 — 라이브 SPM용
   segments: RunSegment[]; // 완료된 러닝 세그먼트 — iOS 백필용
+  weatherCode: number | null; // WMO weather code. null = 아직 조회 전·실패
+  temperatureC: number | null; // °C
   start: (now: number) => void;
   pause: (now: number) => void;
   resume: (now: number) => void;
   addPoint: (p: RoutePoint) => void;
   beginStepTracking: () => void;
   addStepReading: (cumulative: number, now: number) => void;
+  setWeather: (startedAt: number, weatherCode: number, temperatureC: number) => void;
   beginSave: (now: number) => boolean;
   failSave: () => void;
   reset: () => void;
@@ -45,6 +48,8 @@ const initial = {
   lastStepReading: 0,
   stepSamples: [] as StepSample[],
   segments: [] as RunSegment[],
+  weatherCode: null as number | null,
+  temperatureC: null as number | null,
 };
 
 export const useRunStore = create<RunState>((set, get) => ({
@@ -100,6 +105,13 @@ export const useRunStore = create<RunState>((set, get) => ({
       lastStepReading: cumulative,
       stepSamples: nextSamples,
     });
+  },
+
+  // 조회를 시작한 러닝(startedAt)이 여전히 현재 러닝일 때만 반영 —
+  // 늦게 도착한 응답이 reset 후 상태나 다음 러닝을 오염시키지 않는다.
+  setWeather: (startedAt, weatherCode, temperatureC) => {
+    if (get().startedAt !== startedAt) return;
+    set({ weatherCode, temperatureC });
   },
 
   // 저장이 진행되는 동안 재진입(종료 버튼 중복 탭)을 막는 단방향 게이트.
