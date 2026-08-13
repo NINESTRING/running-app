@@ -3,6 +3,7 @@ import '../src/services/location';
 
 import { PortalHost } from '@rn-primitives/portal';
 import { Stack, ThemeProvider } from 'expo-router';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
 import { colorScheme as nativewindColorScheme, useColorScheme } from 'nativewind';
 import { useEffect, useState } from 'react';
@@ -44,14 +45,17 @@ export default function RootLayout() {
   if (!hydrated) return null;
 
   return (
-    <ThemeProvider value={NAV_THEME[scheme]}>
-      <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
-      <Stack screenOptions={{ headerTitle: '', headerBackButtonDisplayMode: 'minimal' }}>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="run/[id]" />
-        <Stack.Screen name="changelog" />
-      </Stack>
-      <PortalHost />
-    </ThemeProvider>
+    // 스와이프 등 제스처 핸들러 동작의 전제 조건 — flex: 1이 없으면 화면이 0 높이로 렌더됨
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ThemeProvider value={NAV_THEME[scheme]}>
+        <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
+        <Stack screenOptions={{ headerTitle: '', headerBackButtonDisplayMode: 'minimal' }}>
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="run/[id]" />
+          <Stack.Screen name="changelog" />
+        </Stack>
+        <PortalHost />
+      </ThemeProvider>
+    </GestureHandlerRootView>
   );
 }
