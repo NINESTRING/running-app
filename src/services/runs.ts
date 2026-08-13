@@ -10,6 +10,8 @@ export interface FinishedRun {
   steps: number | null; // null = 측정 안 됨
   points: RoutePoint[];
   segments: TimeRange[]; // 완료된 러닝 세그먼트 — 일시정지 제외 구간 계산용
+  weatherCode: number | null; // WMO weather code. null = 조회 실패
+  temperatureC: number | null; // °C
 }
 
 // [t, lat, lng, alt] 튜플의 세그먼트별 배열 (route_points JSONB 포맷)
@@ -90,6 +92,8 @@ export function rowToRunRecord(row: RunRow): RunRecord | null {
     steps: row.steps ?? null,
     routeGeojson: row.route_geojson ? JSON.parse(row.route_geojson) : null,
     routePoints: parseRoutePoints(row.route_points),
+    weatherCode: row.weather_code ?? null,
+    temperatureC: row.temperature_c ?? null,
   };
 }
 
@@ -107,6 +111,8 @@ export async function saveRun(
       steps: run.steps,
       route: pointsToEwkt(run.points),
       route_points: segmentsToJson(run.points, run.segments),
+      weather_code: run.weatherCode,
+      temperature_c: run.temperatureC,
     });
     return error ? { ok: false, error: error.message } : { ok: true };
   } catch (e) {

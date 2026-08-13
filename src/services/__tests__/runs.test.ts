@@ -131,4 +131,17 @@ describe('rowToRunRecord', () => {
     expect(rec).not.toBeNull();
     expect(rec?.routePoints).toBeNull();
   });
+
+  it('weather_code·temperature_c를 매핑한다', () => {
+    const rec = rowToRunRecord({ ...baseRow, weather_code: 3, temperature_c: 21.4 });
+    expect(rec?.weatherCode).toBe(3);
+    expect(rec?.temperatureC).toBe(21.4);
+  });
+
+  it('날씨가 null이어도 레코드는 유지 (구버전·조회 실패 기록)', () => {
+    const rec = rowToRunRecord(baseRow);
+    expect(rec).not.toBeNull();
+    expect(rec?.weatherCode).toBeNull();
+    expect(rec?.temperatureC).toBeNull();
+  });
 });

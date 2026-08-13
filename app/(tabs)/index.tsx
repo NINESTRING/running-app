@@ -169,6 +169,8 @@ export default function HomeScreen() {
       steps,
       points: s.points,
       segments: s.segments,
+      weatherCode: null,
+      temperatureC: null,
     });
     if (result.ok) {
       useRunStore.getState().reset();
