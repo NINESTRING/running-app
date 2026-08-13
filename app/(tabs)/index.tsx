@@ -51,6 +51,7 @@ import { elapsedMs, useRunStore } from '@/stores/runStore';
 
 type DialogState =
   | { type: 'startError'; message: string }
+  | { type: 'confirmStop' }
   | { type: 'saved' }
   | { type: 'saveError'; message: string }
   | null;
@@ -182,6 +183,23 @@ export default function HomeScreen() {
     setNow(Date.now());
   };
 
+  // 종료 탭: 즉시 저장하지 않고 일시정지 후 확인 다이얼로그를 띄운다.
+  const onStopPressed = () => {
+    useRunStore.getState().pause(Date.now()); // paused면 no-op
+    setDialog({ type: 'confirmStop' });
+  };
+
+  const onDiscard = async () => {
+    setDialog(null);
+    try {
+      await stopTracking();
+    } catch {
+      // 추적 중지 실패해도 기록 폐기는 계속 진행
+    }
+    stopStepCounting();
+    useRunStore.getState().reset();
+  };
+
   const onStop = async () => {
     // saving 전환에 실패하면 이미 저장이 진행 중 → 중복 저장 방지
     if (!useRunStore.getState().beginSave(Date.now())) return;
@@ -303,7 +321,7 @@ export default function HomeScreen() {
                   <Button size="lg" variant="secondary" onPress={onPause}>
                     <Text>일시정지</Text>
                   </Button>
-                  <Button size="lg" variant="destructive" onPress={onStop}>
+                  <Button size="lg" variant="destructive" onPress={onStopPressed}>
                     <Text>종료</Text>
                   </Button>
                 </>
@@ -313,7 +331,7 @@ export default function HomeScreen() {
                   <Button size="lg" onPress={onResume}>
                     <Text>재개</Text>
                   </Button>
-                  <Button size="lg" variant="destructive" onPress={onStop}>
+                  <Button size="lg" variant="destructive" onPress={onStopPressed}>
                     <Text>종료</Text>
                   </Button>
                 </>
@@ -337,6 +355,32 @@ export default function HomeScreen() {
         }}
       >
         <AlertDialogContent>
+          {dialog?.type === 'confirmStop' && (
+            <>
+              <AlertDialogHeader>
+                <AlertDialogTitle>러닝을 종료할까요?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  기록을 저장하거나 버릴 수 있습니다.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel onPress={() => setDialog(null)}>
+                  <Text>취소</Text>
+                </AlertDialogCancel>
+                <AlertDialogAction onPress={onDiscard}>
+                  <Text>버리기</Text>
+                </AlertDialogAction>
+                <AlertDialogAction
+                  onPress={() => {
+                    setDialog(null);
+                    void onStop();
+                  }}
+                >
+                  <Text>저장</Text>
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </>
+          )}
           {dialog?.type === 'saved' && (
             <>
               <AlertDialogHeader>
