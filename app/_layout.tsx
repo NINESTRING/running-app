@@ -46,10 +46,10 @@ export default function RootLayout() {
   return (
     <ThemeProvider value={NAV_THEME[scheme]}>
       <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
-      <Stack>
+      <Stack screenOptions={{ headerTitle: '', headerBackButtonDisplayMode: 'minimal' }}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="run/[id]" options={{ title: '러닝 상세' }} />
-        <Stack.Screen name="changelog" options={{ title: '변경 사항' }} />
+        <Stack.Screen name="run/[id]" />
+        <Stack.Screen name="changelog" />
       </Stack>
       <PortalHost />
     </ThemeProvider>

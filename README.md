@@ -14,6 +14,7 @@ npm install
 npx expo start
 npx expo run:ios
 npx expo run:ios --device
+npx expo run:ios --device --configuration Release
 ```
 
 - 기본 UI 확인은 Expo Go로 가능.

@@ -1,4 +1,4 @@
-import { periodBuckets, periodSummary, averageDistanceM, niceMax, availablePeriods, periodLabel } from '../stats';
+import { periodBuckets, periodSummary, averageDistanceM, niceMax, availablePeriods } from '../stats';
 
 // 2026-08-03은 월요일, 2026-08-01은 토요일. "오늘"은 2026-08-05(수)로 고정
 const WED = new Date('2026-08-05T12:00:00+09:00');
