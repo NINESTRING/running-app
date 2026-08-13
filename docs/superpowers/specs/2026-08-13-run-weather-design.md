@@ -70,6 +70,11 @@ fetchCurrentWeather(lat: number, lng: number):
 좌표로 `fetchCurrentWeather()`를 1회 재시도한다(같은 5초 타임아웃). GPS 포인트가
 하나도 없으면 재시도 없이 넘어간다. 그래도 실패하면 `null`로 저장한다.
 
+이 재시도(`resolveRunWeather`, `src/services/weather.ts`)는 `backfillSteps()`
+걸음 백필과 `Promise.all`로 병렬 실행된다 — 저장을 막거나 지연시키지 않는다는
+요구사항을 지키기 위해, 최대 5초가 걸릴 수 있는 재시도를 걸음 백필과 순차가
+아닌 동시 실행으로 구성한다.
+
 ### runStore 변경
 
 - 상태 필드: `weatherCode: number | null`, `temperatureC: number | null` (initial: `null`).
@@ -105,8 +110,9 @@ fetchCurrentWeather(lat: number, lng: number):
 
 | 상황 | 동작 |
 | --- | --- |
-| 오프라인·API 장애·타임아웃 | 시작 시 조회 실패 → 저장 시 1회 재시도 → 실패 시 `null` 저장 |
+| 오프라인·API 장애·타임아웃 | 시작 시 조회 실패 → 저장 시 걸음 백필과 병렬로 1회 재시도(저장 지연 없음) → 실패 시 `null` 저장 |
 | 좌표 없음 (웹에서 위치 거부 등) | 조회 생략, `null` 저장 |
+| API 응답이 DB check 제약 범위 밖 (`weather_code` 0~99, `temperature_c` -90~60 초과) | 조회 실패로 취급, `null` 저장 |
 | 늦은 응답 (러닝 종료·리셋 후 도착) | `startedAt` 가드로 무시 |
 | 과거 기록 (`null`) | 화면에서 날씨 부분만 생략 |
 

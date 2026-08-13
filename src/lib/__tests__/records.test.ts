@@ -7,7 +7,7 @@ function pt(m: number, sec: number): RoutePoint {
   return { latitude: 0, longitude: m / M_PER_DEG, altitude: null, timestamp: sec * 1000 };
 }
 
-function run(partial: Partial<Omit<RunRecord, 'weatherCode' | 'temperatureC'>> & Pick<RunRecord, 'id' | 'startedAt'>): RunRecord {
+function run(partial: Partial<RunRecord> & Pick<RunRecord, 'id' | 'startedAt'>): RunRecord {
   return {
     durationSec: 0,
     distanceM: 0,
@@ -17,7 +17,7 @@ function run(partial: Partial<Omit<RunRecord, 'weatherCode' | 'temperatureC'>> &
     weatherCode: null,
     temperatureC: null,
     ...partial,
-  } as RunRecord;
+  };
 }
 
 describe('bestSegmentTimeSec', () => {
