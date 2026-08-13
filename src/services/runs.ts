@@ -10,8 +10,8 @@ export interface FinishedRun {
   steps: number | null; // null = 측정 안 됨
   points: RoutePoint[];
   segments: TimeRange[]; // 완료된 러닝 세그먼트 — 일시정지 제외 구간 계산용
-  weatherCode: number | null; // WMO weather code. null = 조회 실패
-  temperatureC: number | null; // °C
+  weatherCode: number | null; // 러닝 시작 시점 날씨 (시작 시 조회 실패 시 종료 시점 값). WMO weather code. null = 조회 실패
+  temperatureC: number | null; // 러닝 시작 시점 기온 (시작 시 조회 실패 시 종료 시점 값). °C
 }
 
 // [t, lat, lng, alt] 튜플의 세그먼트별 배열 (route_points JSONB 포맷)
