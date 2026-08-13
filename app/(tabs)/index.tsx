@@ -40,6 +40,7 @@ import {
   stopStepCounting,
 } from '@/services/pedometer';
 import { saveRun } from '@/services/runs';
+import { fetchCurrentWeather } from '@/services/weather';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { elapsedMs, useRunStore } from '@/stores/runStore';
 
@@ -117,6 +118,16 @@ export default function HomeScreen() {
     segmentStartedAt
   );
 
+  // 러닝 시작 시점 날씨를 백그라운드로 조회 — 실패해도 러닝 흐름에 영향 없음
+  const fetchWeatherForRun = async () => {
+    const startedAt = useRunStore.getState().startedAt;
+    if (startedAt === null) return;
+    const loc = await getMyLocation();
+    if (loc.status !== 'granted') return;
+    const w = await fetchCurrentWeather(loc.coords.latitude, loc.coords.longitude);
+    if (w) useRunStore.getState().setWeather(startedAt, w.weatherCode, w.temperatureC);
+  };
+
   const onStart = async () => {
     const granted = await requestPermissions();
     if (!granted) {
@@ -134,6 +145,7 @@ export default function HomeScreen() {
       return;
     }
     useRunStore.getState().start(Date.now());
+    void fetchWeatherForRun();
     setNow(Date.now());
     // 모션 권한 거부·미지원이어도 러닝은 계속 — 케이던스만 '--'
     if (await requestPedometerPermissions()) {
@@ -162,6 +174,19 @@ export default function HomeScreen() {
     const durationSec = Math.round(elapsedMs(s, 0) / 1000);
     // iOS: CMPedometer 이력으로 백필 (화면 꺼짐 구간 보정). 실패·Android는 라이브 카운트.
     const steps = (await backfillSteps(s.segments)) ?? s.steps;
+    // 시작 시 조회가 실패했으면 마지막 GPS 좌표로 1회 재시도. 실패해도 저장은 계속.
+    let weatherCode = s.weatherCode;
+    let temperatureC = s.temperatureC;
+    if (weatherCode === null || temperatureC === null) {
+      const last = s.points[s.points.length - 1];
+      const w = last
+        ? await fetchCurrentWeather(last.latitude, last.longitude)
+        : null;
+      if (w) {
+        weatherCode = w.weatherCode;
+        temperatureC = w.temperatureC;
+      }
+    }
     const result = await saveRun({
       startedAt: s.startedAt ?? stoppedAt,
       durationSec,
@@ -169,8 +194,8 @@ export default function HomeScreen() {
       steps,
       points: s.points,
       segments: s.segments,
-      weatherCode: null,
-      temperatureC: null,
+      weatherCode,
+      temperatureC,
     });
     if (result.ok) {
       useRunStore.getState().reset();
