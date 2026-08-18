@@ -4,6 +4,7 @@ import { AccountSection } from '@/components/AccountSection';
 import { AppInfoSection } from '@/components/AppInfoSection';
 import { Text } from '@/components/ui/text';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { VoiceGuideSection } from '@/components/VoiceGuideSection';
 import { useSettingsStore } from '@/stores/settingsStore';
 
 export default function SettingsScreen() {
@@ -54,6 +55,7 @@ export default function SettingsScreen() {
           </ToggleGroupItem>
         </ToggleGroup>
       </View>
+      <VoiceGuideSection />
       <AppInfoSection />
     </View>
   );
