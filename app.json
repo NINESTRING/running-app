@@ -61,6 +61,12 @@
         {
           "motionPermission": "케이던스(분당 걸음 수) 측정을 위해 모션 데이터를 사용합니다."
         }
+      ],
+      [
+        "expo-audio",
+        {
+          "enableBackgroundPlayback": true
+        }
       ]
     ],
     "experiments": {
