@@ -8,13 +8,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { NativeOnlyAnimatedView } from '@/components/ui/native-only-animated-view';
 import { Text } from '@/components/ui/text';
-
-/** 카운트다운 시작 숫자 */
-export const COUNTDOWN_START = 3;
-/** 숫자 하나가 머무는 시간 */
-export const COUNTDOWN_TICK_MS = 1000;
-/** tick 0("시작!")부터 오버레이가 사라지기까지 — 이 구간에서 러닝은 이미 진행 중이다 */
-export const COUNTDOWN_EXIT_MS = 500;
+import { COUNTDOWN_EXIT_MS } from '@/lib/countdown';
 
 type Props = {
   /** 3·2·1 = 숫자, 0 = "시작!"(취소 불가), null = 렌더 안 함 */
