@@ -18,6 +18,7 @@ import { Text } from '@/components/ui/text';
 import { GoalDialog } from '@/components/GoalDialog';
 import { CountdownOverlay } from '@/components/CountdownOverlay';
 import { RouteMap, type RouteMapHandle } from '@/components/RouteMap';
+import { useVoiceCues } from '@/hooks/useVoiceCues';
 import { cadenceSpm, formatCadence } from '@/lib/cadence';
 import {
   COUNTDOWN_EXIT_MS,
@@ -29,6 +30,7 @@ import {
 import { formatDistance, formatDuration, formatPace, METERS_PER_MILE, paceSecPerUnit } from '@/lib/geo';
 import { goalDeltaM, goalDeltaStatus, goalSummary } from '@/lib/goal';
 import { cn } from '@/lib/utils';
+import { countdownCueText, isVoiceGuideOn, voiceSummaryText } from '@/lib/voice';
 import {
   computeSplits,
   partitionPoints,
@@ -51,6 +53,7 @@ import {
   stopStepCounting,
 } from '@/services/pedometer';
 import { saveRun } from '@/services/runs';
+import { configureVoiceAudio, speakIfVoiceGuideOn, stopSpeaking } from '@/services/speech';
 import { fetchCurrentWeather, resolveRunWeather } from '@/services/weather';
 import { fetchLocationLabel } from '@/services/geocoding';
 import { useGoalStore } from '@/stores/goalStore';
@@ -70,6 +73,7 @@ export default function HomeScreen() {
   const distanceM = useRunStore((s) => s.distanceM);
   const accumulatedMs = useRunStore((s) => s.accumulatedMs);
   const segmentStartedAt = useRunStore((s) => s.segmentStartedAt);
+  const startedAt = useRunStore((s) => s.startedAt);
   const stepSamples = useRunStore((s) => s.stepSamples);
   const segments = useRunStore((s) => s.segments);
   const unit = useSettingsStore((s) => s.unit);
@@ -129,6 +133,7 @@ export default function HomeScreen() {
   }, [status]);
 
   const elapsed = elapsedMs({ accumulatedMs, segmentStartedAt }, now);
+  useVoiceCues({ status, startedAt, distanceM, elapsedMs: elapsed });
 
   // 목표 페이스 대비 편차 — 30초 미만이면 null(초반 가드)
   const goalDelta =
@@ -207,6 +212,13 @@ export default function HomeScreen() {
         });
         return;
       }
+      // 카운트다운 첫 숫자("삼")가 세션이 잡히기 전에 나가면 씹힌다 — 여기서 기다린다.
+      // 음성 안내가 꺼져 있으면 뛰는 동안에도 발화할 일이 없으므로 세션을 잡지 않는다.
+      // configureVoiceAudio는 실패를 안에서 삼키므로 러닝 시작을 막지 않는다.
+      const { voiceDistanceUnits, voiceTimeMin } = useSettingsStore.getState();
+      if (isVoiceGuideOn(voiceDistanceUnits, voiceTimeMin)) {
+        await configureVoiceAudio();
+      }
       applyCountdown(COUNTDOWN_START);
     } finally {
       startingRef.current = false;
@@ -217,6 +229,7 @@ export default function HomeScreen() {
   const onCancelCountdown = () => {
     if (!isCancellable(countdownRef.current)) return;
     applyCountdown(null);
+    stopSpeaking();
     stopTracking().catch((e) => console.warn('추적 중지 실패', e));
   };
 
@@ -224,6 +237,8 @@ export default function HomeScreen() {
   // 클린업이 예약된 타이머를 지우므로 "취소했는데 1초 뒤 시작되는" 레이스가 없다.
   useEffect(() => {
     if (countdown === null) return;
+    // 화면 숫자가 바뀌는 순간과 같은 박자로 읽는다. 음성 안내가 꺼져 있으면 무음.
+    speakIfVoiceGuideOn(countdownCueText(countdown));
     if (countdown === 0) {
       const t = setTimeout(() => applyCountdown(null), COUNTDOWN_EXIT_MS);
       return () => clearTimeout(t);
@@ -259,6 +274,7 @@ export default function HomeScreen() {
   const onDiscard = () => {
     if (useRunStore.getState().status !== 'paused') return;
     setDialog(null);
+    stopSpeaking();
     stopStepCounting();
     useRunStore.getState().reset();
     stopTracking().catch((e) => console.warn('추적 중지 실패', e));
@@ -267,6 +283,7 @@ export default function HomeScreen() {
   const onStop = async () => {
     // saving 전환에 실패하면 이미 저장이 진행 중 → 중복 저장 방지
     if (!useRunStore.getState().beginSave(Date.now())) return;
+    stopSpeaking();
     try {
       await stopTracking();
     } catch (e) {
@@ -304,6 +321,18 @@ export default function HomeScreen() {
     });
     if (result.ok) {
       useRunStore.getState().reset();
+      // 저장에 쓴 값 그대로 읽는다. durationSec·s.distanceM은 reset() 이전에
+      // 잡아둔 지역 변수라 리셋 순서와 무관하다.
+      const summaryElapsedMs = durationSec * 1000;
+      speakIfVoiceGuideOn(
+        voiceSummaryText({
+          elapsedMs: summaryElapsedMs,
+          distanceM: s.distanceM,
+          unit,
+          paceSecPerUnit: paceSecPerUnit(s.distanceM, summaryElapsedMs, unit),
+          goalDistanceUnits,
+        }),
+      );
       setDialog({ type: 'saved' });
     } else {
       useRunStore.getState().failSave();
