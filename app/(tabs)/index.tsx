@@ -227,6 +227,9 @@ export default function HomeScreen() {
       return () => clearTimeout(t);
     }
     const t = setTimeout(() => {
+      // 취소의 state 커밋이 이 타이머보다 늦게 flush돼도 러닝이 시작되지 않게 한다 —
+      // 클린업의 clearTimeout에만 기대지 않는 이중 방어
+      if (countdownRef.current === null) return;
       const next = nextCountdown(countdown);
       // beginRun()보다 먼저 커밋 — 늦게 도착한 취소 탭이 0을 보고 물러난다
       applyCountdown(next);
@@ -264,8 +267,9 @@ export default function HomeScreen() {
     if (!useRunStore.getState().beginSave(Date.now())) return;
     try {
       await stopTracking();
-    } catch {
-      // 추적 중지 실패해도 이후 기록 저장 로직은 계속 진행
+    } catch (e) {
+      // 추적 중지 실패해도 이후 기록 저장 로직은 계속 진행 — 다만 로그는 남긴다
+      console.warn('추적 중지 실패', e);
     }
     stopStepCounting();
     const s = useRunStore.getState();

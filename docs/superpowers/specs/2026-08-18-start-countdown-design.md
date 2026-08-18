@@ -90,8 +90,9 @@ type Props = { tick: number | null; onCancel: () => void };
 ```
 
 - `tick === null`이면 `null`을 반환한다.
+- 루트 `PortalHost`(`app/_layout.tsx`)로 `Portal`을 통해 그린다. 탭 scene 안에
+  두면 노치 영역과 탭바가 덮이지 않는다.
 - 컨테이너: `absolute inset-0 items-center justify-center bg-black/70`.
-  `HomeScreen` 루트 `View`의 마지막 자식으로 렌더해 지도·카드 위에 온다.
 - 숫자: `NativeOnlyAnimatedView`(기존 UI 컴포넌트)에 `key={tick}` +
   `entering={ZoomIn.duration(200)}`, 그 안에 `Text`. 틱마다 새 노드가 마운트되어
   전환이 생긴다. `text-white font-bold`, `fontSize: 140`.
@@ -102,8 +103,10 @@ type Props = { tick: number | null; onCancel: () => void };
 - 딤·정렬은 안쪽 `View`의 `className`에 두고 `Animated.View`에는 `style`만 준다.
   NativeWind `className`을 Reanimated 컴포넌트에 직접 걸지 않기 위함이다.
 - 취소: `tick > 0`일 때만 화면을 덮는 `Pressable`이 `onCancel`을 호출한다.
-- 접근성: 컨테이너에 `accessibilityLiveRegion="assertive"`, 취소 `Pressable`에
-  `accessibilityRole="button"`과 `accessibilityLabel="카운트다운 취소"`.
+- 접근성: 컨테이너에 `accessibilityLiveRegion="assertive"`(Android·web),
+  iOS는 지원하지 않으므로 틱마다 `AccessibilityInfo.announceForAccessibility`로
+  따로 알린다. 취소 `Pressable`에 `accessibilityRole="button"`과
+  `accessibilityLabel="카운트다운 취소"`.
 
 ### `app/(tabs)/index.tsx` (수정)
 
@@ -120,6 +123,8 @@ type Props = { tick: number | null; onCancel: () => void };
   - `countdown === 0` → `COUNTDOWN_EXIT_MS` 후 `applyCountdown(null)`.
   - 그 외 → `COUNTDOWN_TICK_MS` 후 `applyCountdown(nextCountdown(countdown))`,
     다음 값이 0이면 **그 뒤에** 같은 콜백에서 `beginRun()`을 호출한다.
+    콜백 진입 시 `countdownRef.current === null`이면 즉시 빠져나온다 — 취소의 state
+    커밋이 타이머보다 늦게 flush돼도 러닝이 시작되지 않게 하는 이중 방어.
   - 클린업에서 항상 `clearTimeout`.
 - 재진입 가드: `startingRef`(권한·추적 await 구간)와 `countdownRef.current !== null`.
 - 취소 핸들러: `isCancellable(countdownRef.current)`가 거짓이면 무시, 아니면
