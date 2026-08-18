@@ -69,6 +69,18 @@ status 가드와 기존 스토어 테스트를 재검토해야 하지만 얻는 
 
 ## 구현
 
+### `src/lib/countdown.ts` (신규)
+
+타이밍 상수와 순수 규칙. 컴포넌트/화면 양쪽이 여기서 가져다 쓴다.
+
+- `COUNTDOWN_START = 3`, `COUNTDOWN_TICK_MS = 1000`, `COUNTDOWN_EXIT_MS = 500`
+- `nextCountdown(tick: number): number` — 다음 틱 값
+- `isCancellable(tick: number | null): boolean` — 숫자 구간(3·2·1)만 참.
+  `0`은 "시작!"(이미 시작됨), `null`은 카운트다운 아님
+
+취소 가능 구간 규칙이 화면 코드에만 있으면 검증할 방법이 없다. 순수 함수로 빼서
+`src/lib/__tests__/countdown.test.ts`가 경계(3→2, 2→1, 1→0, 취소 가능 여부)를 고정한다.
+
 ### `src/components/CountdownOverlay.tsx` (신규)
 
 프레젠테이션 전용. 타이머를 소유하지 않는다.
@@ -77,8 +89,6 @@ status 가드와 기존 스토어 테스트를 재검토해야 하지만 얻는 
 type Props = { tick: number | null; onCancel: () => void };
 ```
 
-- `COUNTDOWN_START = 3`, `COUNTDOWN_TICK_MS = 1000`, `COUNTDOWN_EXIT_MS = 500`을
-  이 파일에서 export한다.
 - `tick === null`이면 `null`을 반환한다.
 - 컨테이너: `absolute inset-0 items-center justify-center bg-black/70`.
   `HomeScreen` 루트 `View`의 마지막 자식으로 렌더해 지도·카드 위에 온다.
@@ -97,23 +107,33 @@ type Props = { tick: number | null; onCancel: () => void };
 
 ### `app/(tabs)/index.tsx` (수정)
 
-- `const [countdown, setCountdown] = useState<number | null>(null)` 추가.
+- `const [countdown, setCountdown] = useState<number | null>(null)`와,
+  같은 값을 동기로 미러링하는 `countdownRef`를 둔다. 모든 갱신은
+  `applyCountdown(v)` 하나를 거쳐 ref를 먼저 쓰고 state를 쓴다.
 - 기존 `onStart`를 둘로 나눈다.
   - `onStart`: 재진입 가드 → `requestPermissions()` → `startTracking()` →
-    `setCountdown(COUNTDOWN_START)`.
+    `applyCountdown(COUNTDOWN_START)`.
   - `beginRun()`: `runStore.start(now)` · `setNow(now)` · `fetchWeatherForRun()` ·
     `requestPedometerPermissions()` → `startStepCounting()`.
 - 틱 `useEffect`:
   - `countdown === null` → 아무것도 하지 않는다.
-  - `countdown === 0` → `COUNTDOWN_EXIT_MS` 후 `setCountdown(null)`.
-  - 그 외 → `COUNTDOWN_TICK_MS` 후 `setCountdown(countdown - 1)`, 다음 값이 0이면
-    같은 콜백에서 `beginRun()`을 호출한다.
+  - `countdown === 0` → `COUNTDOWN_EXIT_MS` 후 `applyCountdown(null)`.
+  - 그 외 → `COUNTDOWN_TICK_MS` 후 `applyCountdown(nextCountdown(countdown))`,
+    다음 값이 0이면 **그 뒤에** 같은 콜백에서 `beginRun()`을 호출한다.
   - 클린업에서 항상 `clearTimeout`.
-- 재진입 가드: `startingRef`(권한·추적 await 구간)와 `countdown !== null` 조건으로
-  시작 버튼 더블탭을 막는다. 현재 코드에는 없는 보호다.
-- 취소 핸들러: `countdown`이 `null`이나 `0`이면 무시, 아니면 `setCountdown(null)`
-  후 `stopTracking().catch(() => {})`.
+- 재진입 가드: `startingRef`(권한·추적 await 구간)와 `countdownRef.current !== null`.
+- 취소 핸들러: `isCancellable(countdownRef.current)`가 거짓이면 무시, 아니면
+  `applyCountdown(null)` 후 `stopTracking()`(실패는 `console.warn`).
 - 루트 `View` 마지막에 `<CountdownOverlay tick={countdown} onCancel={...} />`.
+
+#### 가드가 state가 아니라 ref를 읽는 이유
+
+`setCountdown(0)`은 렌더를 예약할 뿐이다. 틱 콜백은 그 직후 `beginRun()`으로
+러닝을 **동기적으로** 시작하므로, 커밋 전에 이미 큐에 들어와 있던 탭 이벤트는
+`countdown === 1`인 옛 클로저로 취소 핸들러를 실행한다. 그러면 이미 시작된
+러닝에 `stopTracking()`이 걸려 시간은 흐르는데 GPS가 꺼진, 거리 0.00짜리
+러닝이 되고 사용자에게는 아무 신호도 가지 않는다. ref는 커밋을 기다리지 않으므로
+이 창을 구조적으로 없앤다. 시작 버튼 재진입도 같은 이유로 ref를 본다.
 
 ## 엣지 케이스
 
@@ -130,10 +150,11 @@ type Props = { tick: number | null; onCancel: () => void };
 
 ## 테스트
 
-새 순수 로직이 없다(라벨 매핑 한 줄이 전부). 단위 테스트 대상이 없으므로 검증은
-회귀 + 수동 확인으로 한다.
+취소 가능 구간과 틱 감소 규칙은 `src/lib/countdown.ts`의 순수 함수로 빼서 테스트한다.
+나머지(타이머 배선·애니메이션)는 컴포넌트 테스트 인프라가 없으므로 수동 확인으로 검증한다.
 
-- `npm test` — 기존 스토어·서비스 회귀, 특히 `src/stores/__tests__/runStore.test.ts`.
+- `npm test` — `src/lib/__tests__/countdown.test.ts`(신규)와 기존 스토어·서비스
+  회귀, 특히 `src/stores/__tests__/runStore.test.ts`.
 - `npx tsc --noEmit`, `npm run lint`.
 - 실기기 확인:
   - 3 → 2 → 1 → 시작! 이후 시간 지표가 00:00부터 오른다.
