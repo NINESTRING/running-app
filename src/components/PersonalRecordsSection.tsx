@@ -52,7 +52,7 @@ export function PersonalRecordsSection({ records, unit, onPressRun }: Props) {
         {badges.map((b) => {
           const entry = b.entry;
           return (
-            <View key={b.key} className="w-1/3 items-center px-1 pb-5">
+            <View key={b.key} className="w-1/3 items-center px-1 pb-3">
               <RecordBadge
                 label={b.label}
                 icon={b.icon}

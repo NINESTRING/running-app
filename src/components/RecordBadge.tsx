@@ -35,8 +35,8 @@ export function RecordBadge({
   const fg = achieved ? ACCENT : GRAY;
   const body = (
     <View className="items-center gap-0.5">
-      <View className="h-24 w-20 items-center justify-center">
-        <Svg width={72} height={86} viewBox="0 0 100 118">
+      <View className="h-16 w-14 items-center justify-center">
+        <Svg width={52} height={62} viewBox="0 0 100 118">
           <Path
             d="M8 4 H92 V84 L50 112 L8 84 Z"
             fill={achieved ? SHIELD_DARK : GRAY_BG}
@@ -58,8 +58,8 @@ export function RecordBadge({
           ) : null}
         </Svg>
         {icon ? (
-          <View className="absolute inset-0 items-center justify-center pb-2">
-            <IconCmp size={28} color={fg} />
+          <View className="absolute inset-0 items-center justify-center pb-1.5">
+            <IconCmp size={20} color={fg} />
           </View>
         ) : null}
       </View>
