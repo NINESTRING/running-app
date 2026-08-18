@@ -139,10 +139,12 @@ export default function HomeScreen() {
   // 거리 목표 진행 표시 (idle에서는 요약 줄이 있으므로 숨김)
   const unitM = unit === 'mi' ? METERS_PER_MILE : 1000;
   const showDistanceGoal = goalDistanceUnits !== null && status !== 'idle';
-  const distanceValue = showDistanceGoal
-    ? `${formatDistance(distanceM, unit)} / ${goalDistanceUnits.toFixed(2)}`
-    : formatDistance(distanceM, unit);
+  const distanceGoal = showDistanceGoal ? goalDistanceUnits.toFixed(2) : null;
   const distanceReached = showDistanceGoal && distanceM >= goalDistanceUnits * unitM;
+
+  // 러닝이 시작되면 지표를 상단으로 올린다 — 뛰면서 흘긋 봐도 읽히는 자리다.
+  // 조작 버튼은 엄지가 닿는 하단에 남는다. saving도 상단이라야 저장 직후 지표가 튀지 않는다.
+  const statsOnTop = status !== 'idle';
 
   // 러닝·일시정지 중 현재 구간 번호와 실시간 구간 페이스
   const splitDistanceM = splitDistanceFor(unit);
@@ -320,6 +322,34 @@ export default function HomeScreen() {
           initialCoords={initialCoords ?? undefined}
         />
       )}
+      {/* 상단 인셋은 (tabs)/_layout이 sceneStyle.paddingTop으로 이미 준다 — top-4면 노치 아래 */}
+      {statsOnTop && (
+        <View className="absolute inset-x-4 top-4" pointerEvents="box-none">
+          <Card>
+            <CardContent className="gap-3 p-4">
+              <MetricsGrid
+                size="large"
+                unit={unit}
+                distance={formatDistance(distanceM, unit)}
+                distanceGoal={distanceGoal}
+                distanceReached={distanceReached}
+                duration={formatDuration(elapsed)}
+                pace={formatPace(paceSecPerUnit(distanceM, elapsed, unit))}
+                cadence={formatCadence(cadenceSpm(stepSamples, now))}
+              />
+              {liveSplits && (
+                <Text className="text-center text-lg text-muted-foreground">
+                  {`구간 ${liveSplits.completed.length + 1} · ${formatPace(
+                    liveSplitPaceSec(liveSplits.current, splitDistanceM, extraSec)
+                  )}`}
+                </Text>
+              )}
+              {goalDelta !== null && <GoalDeltaLine deltaM={goalDelta} />}
+            </CardContent>
+          </Card>
+        </View>
+      )}
+
       <View className="absolute inset-x-4 bottom-6 gap-3" pointerEvents="box-none">
         {Platform.OS !== 'web' && points.length === 0 && (
           <View className="items-end" pointerEvents="box-none">
@@ -343,36 +373,27 @@ export default function HomeScreen() {
               </Pressable>
             )}
             {status === 'idle' && (
-              <View className="flex-row items-center justify-between">
-                <Text className="text-sm text-muted-foreground">
-                  {goalSummary(goalPaceSec, goalDistanceUnits, unit)}
-                </Text>
-                <Button size="sm" variant="outline" onPress={() => setGoalOpen(true)}>
-                  <Text>목표</Text>
-                </Button>
-              </View>
+              <>
+                <View className="flex-row items-center justify-between">
+                  <Text className="text-sm text-muted-foreground">
+                    {goalSummary(goalPaceSec, goalDistanceUnits, unit)}
+                  </Text>
+                  <Button size="sm" variant="outline" onPress={() => setGoalOpen(true)}>
+                    <Text>목표</Text>
+                  </Button>
+                </View>
+                <MetricsGrid
+                  size="compact"
+                  unit={unit}
+                  distance={formatDistance(distanceM, unit)}
+                  distanceGoal={distanceGoal}
+                  distanceReached={distanceReached}
+                  duration={formatDuration(elapsed)}
+                  pace={formatPace(paceSecPerUnit(distanceM, elapsed, unit))}
+                  cadence={formatCadence(cadenceSpm(stepSamples, now))}
+                />
+              </>
             )}
-            <View className="flex-row justify-around">
-              <Metric
-                label={`거리(${unit})`}
-                value={distanceValue}
-                valueClassName={cn(
-                  showDistanceGoal && 'text-lg',
-                  distanceReached && 'text-green-600 dark:text-green-500',
-                )}
-              />
-              <Metric label="시간" value={formatDuration(elapsed)} />
-              <Metric label={`페이스(/${unit})`} value={formatPace(paceSecPerUnit(distanceM, elapsed, unit))} />
-              <Metric label="케이던스" value={formatCadence(cadenceSpm(stepSamples, now))} />
-            </View>
-            {liveSplits && (
-              <Text className="text-center text-sm text-muted-foreground">
-                {`구간 ${liveSplits.completed.length + 1} · ${formatPace(
-                  liveSplitPaceSec(liveSplits.current, splitDistanceM, extraSec)
-                )}`}
-              </Text>
-            )}
-            {goalDelta !== null && <GoalDeltaLine deltaM={goalDelta} />}
             <View className="flex-row justify-center gap-3">
               {status === 'idle' && (
                 <Button size="lg" onPress={onStart}>
@@ -502,32 +523,103 @@ export default function HomeScreen() {
   );
 }
 
-function Metric({
-  label,
-  value,
-  valueClassName,
+type MetricSize = 'compact' | 'large';
+
+// 목표가 붙으면("0.12 /5.00") 값을 한 단계 줄인다 — 375pt 화면에서 2×2 한 칸은 약 155pt다
+const METRIC_TEXT: Record<
+  MetricSize,
+  { value: string; valueWithGoal: string; goal: string; label: string }
+> = {
+  compact: { value: 'text-2xl', valueWithGoal: 'text-lg', goal: 'text-sm', label: 'text-xs' },
+  large: { value: 'text-4xl', valueWithGoal: 'text-3xl', goal: 'text-xl', label: 'text-sm' },
+};
+
+function MetricsGrid({
+  size,
+  unit,
+  distance,
+  distanceGoal,
+  distanceReached,
+  duration,
+  pace,
+  cadence,
 }: {
-  label: string;
-  value: string;
-  valueClassName?: string;
+  size: MetricSize;
+  unit: 'km' | 'mi';
+  distance: string;
+  distanceGoal: string | null;
+  distanceReached: boolean;
+  duration: string;
+  pace: string;
+  cadence: string;
 }) {
+  const cell = size === 'large' ? 'flex-1' : undefined;
+  const cells = [
+    <Metric
+      key="distance"
+      size={size}
+      className={cell}
+      label={`거리(${unit})`}
+      value={distance}
+      goal={distanceGoal}
+      valueClassName={cn(distanceReached && 'text-green-600 dark:text-green-500')}
+    />,
+    <Metric key="duration" size={size} className={cell} label="시간" value={duration} />,
+    <Metric key="pace" size={size} className={cell} label={`페이스(/${unit})`} value={pace} />,
+    <Metric key="cadence" size={size} className={cell} label="케이던스" value={cadence} />,
+  ];
+  if (size === 'compact') return <View className="flex-row justify-around">{cells}</View>;
+  // 값을 키우면 4개가 한 줄에 안 들어간다 — 2×2로 나눈다
   return (
-    <View className="items-center">
-      <Text className={cn('text-2xl font-bold', valueClassName)}>{value}</Text>
-      <Text className="text-xs text-muted-foreground">{label}</Text>
+    <View className="gap-3">
+      <View className="flex-row">{cells.slice(0, 2)}</View>
+      <View className="flex-row">{cells.slice(2)}</View>
     </View>
   );
 }
 
+function Metric({
+  label,
+  value,
+  goal,
+  size,
+  className,
+  valueClassName,
+}: {
+  label: string;
+  value: string;
+  goal?: string | null;
+  size: MetricSize;
+  className?: string;
+  valueClassName?: string;
+}) {
+  const text = METRIC_TEXT[size];
+  return (
+    <View className={cn('items-center', className)}>
+      <Text
+        numberOfLines={1}
+        className={cn('font-bold', goal ? text.valueWithGoal : text.value, valueClassName)}
+      >
+        {value}
+        {goal && (
+          <Text className={cn('font-bold text-muted-foreground', text.goal)}>{` /${goal}`}</Text>
+        )}
+      </Text>
+      <Text className={cn('text-muted-foreground', text.label)}>{label}</Text>
+    </View>
+  );
+}
+
+// 상단 카드에서만 쓰인다 — 뛰면서 읽어야 하므로 지표 다음으로 큰 글자를 준다
 function GoalDeltaLine({ deltaM }: { deltaM: number }) {
   const status = goalDeltaStatus(deltaM);
   if (status === 'onPace') {
-    return <Text className="text-center text-sm text-muted-foreground">목표 페이스 유지</Text>;
+    return <Text className="text-center text-xl text-muted-foreground">목표 페이스 유지</Text>;
   }
   const m = Math.round(Math.abs(deltaM));
   return status === 'behind' ? (
-    <Text className="text-center text-sm font-medium text-destructive">{`▼ ${m}m 뒤쳐짐`}</Text>
+    <Text className="text-center text-xl font-semibold text-destructive">{`▼ ${m}m 뒤쳐짐`}</Text>
   ) : (
-    <Text className="text-center text-sm font-medium text-green-600 dark:text-green-500">{`▲ ${m}m 앞섬`}</Text>
+    <Text className="text-center text-xl font-semibold text-green-600 dark:text-green-500">{`▲ ${m}m 앞섬`}</Text>
   );
 }
