@@ -16,6 +16,12 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { GoalDialog } from '@/components/GoalDialog';
+import {
+  CountdownOverlay,
+  COUNTDOWN_EXIT_MS,
+  COUNTDOWN_START,
+  COUNTDOWN_TICK_MS,
+} from '@/components/CountdownOverlay';
 import { RouteMap, type RouteMapHandle } from '@/components/RouteMap';
 import { cadenceSpm, formatCadence } from '@/lib/cadence';
 import { formatDistance, formatDuration, formatPace, METERS_PER_MILE, paceSecPerUnit } from '@/lib/geo';
@@ -71,6 +77,8 @@ export default function HomeScreen() {
   const [now, setNow] = useState(() => Date.now());
   const [permissionDenied, setPermissionDenied] = useState(false);
   const [dialog, setDialog] = useState<DialogState>(null);
+  // 3·2·1·0(시작!) — null이면 카운트다운 중이 아니다. runStore는 이 구간 내내 idle.
+  const [countdown, setCountdown] = useState<number | null>(null);
   // undefined: 초기 좌표 확정 전(지도 미렌더). null: 좌표 없음 → 기본 지역
   const [initialCoords, setInitialCoords] = useState<
     { latitude: number; longitude: number } | null | undefined
@@ -78,6 +86,7 @@ export default function HomeScreen() {
 
   const mapRef = useRef<RouteMapHandle>(null);
   const locatingRef = useRef(false);
+  const startingRef = useRef(false);
 
   // fromButton: 버튼 탭이면 거부 시 설정 안내를 띄운다 (마운트 시에는 조용히 무시)
   const goToMyLocation = async (fromButton: boolean) => {
@@ -151,30 +160,70 @@ export default function HomeScreen() {
     if (w) useRunStore.getState().setWeather(startedAt, w.weatherCode, w.temperatureC);
   };
 
-  const onStart = async () => {
-    const granted = await requestPermissions();
-    if (!granted) {
-      setPermissionDenied(true);
-      return;
-    }
-    setPermissionDenied(false);
-    try {
-      await startTracking();
-    } catch (e) {
-      setDialog({
-        type: 'startError',
-        message: e instanceof Error ? e.message : String(e),
-      });
-      return;
-    }
-    useRunStore.getState().start(Date.now());
+  // 카운트다운 0초 시점 — 여기가 실제 러닝 시작이다.
+  // 만보계·날씨는 반드시 start() 이후에 부른다: start()가 상태를 initial로 리셋하므로
+  // 먼저 부르면 beginStepTracking()이 세운 steps:0이 null로 덮여 케이던스가 영구히 '--'가 된다.
+  const beginRun = async () => {
+    const startedAt = Date.now();
+    useRunStore.getState().start(startedAt);
+    setNow(startedAt);
     fetchWeatherForRun().catch(() => {});
-    setNow(Date.now());
     // 모션 권한 거부·미지원이어도 러닝은 계속 — 케이던스만 '--'
     if (await requestPedometerPermissions()) {
       await startStepCounting();
     }
   };
+
+  // 시작 탭: 권한·GPS 추적까지만 확보하고 카운트다운으로 넘긴다.
+  // 추적을 먼저 켜두면 3초간 GPS가 워밍업되고, 권한 팝업·실패 다이얼로그가 카운트다운을 깨지 않는다.
+  // 이 구간에 도착한 좌표는 addPoint의 status 가드가 버리고, 뒤이은 start()가 points를 비운다.
+  const onStart = async () => {
+    if (startingRef.current || countdown !== null) return;
+    startingRef.current = true;
+    try {
+      const granted = await requestPermissions();
+      if (!granted) {
+        setPermissionDenied(true);
+        return;
+      }
+      setPermissionDenied(false);
+      try {
+        await startTracking();
+      } catch (e) {
+        setDialog({
+          type: 'startError',
+          message: e instanceof Error ? e.message : String(e),
+        });
+        return;
+      }
+      setCountdown(COUNTDOWN_START);
+    } finally {
+      startingRef.current = false;
+    }
+  };
+
+  // 카운트다운 취소 — start()를 아직 안 불렀으므로 켜둔 GPS만 되돌리면 된다.
+  const onCancelCountdown = () => {
+    if (countdown === null || countdown === 0) return;
+    setCountdown(null);
+    stopTracking().catch(() => {});
+  };
+
+  // 카운트다운 틱. 0에 닿는 순간 러닝을 시작하고, COUNTDOWN_EXIT_MS 뒤 오버레이를 걷는다.
+  // 클린업이 예약된 타이머를 지우므로 "취소했는데 1초 뒤 시작되는" 레이스가 없다.
+  useEffect(() => {
+    if (countdown === null) return;
+    if (countdown === 0) {
+      const t = setTimeout(() => setCountdown(null), COUNTDOWN_EXIT_MS);
+      return () => clearTimeout(t);
+    }
+    const t = setTimeout(() => {
+      const next = countdown - 1;
+      setCountdown(next);
+      if (next === 0) void beginRun();
+    }, COUNTDOWN_TICK_MS);
+    return () => clearTimeout(t);
+  }, [countdown]);
 
   const onPause = () => useRunStore.getState().pause(Date.now());
 
@@ -433,6 +482,8 @@ export default function HomeScreen() {
           )}
         </AlertDialogContent>
       </AlertDialog>
+
+      <CountdownOverlay tick={countdown} onCancel={onCancelCountdown} />
     </View>
   );
 }
