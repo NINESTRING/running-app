@@ -120,6 +120,8 @@ type Props = { tick: number | null; onCancel: () => void };
 - **추적 시작 실패**: 기존 `startError` 다이얼로그. `countdown`은 `null`로 유지.
 - **카운트다운 중 도착한 GPS 좌표**: `addPoint`의 status 가드가 버리고,
   `start()`가 `points`를 비운다.
+- **web**: 플랫폼 분기 없이 동일하게 동작한다. Reanimated의 `ZoomIn`/`FadeOut`은
+  웹에서도 지원되며, 실패해도 숫자 자체는 표시된다.
 
 ## 테스트
 
