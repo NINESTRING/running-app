@@ -21,6 +21,10 @@
 - 화면이 꺼져 있거나 앱이 백그라운드여도 안내가 나온다.
 - 음악을 듣고 있으면 안내 동안만 음악 볼륨이 낮아진다(ducking).
 - 일시정지·저장 중에는 안내하지 않는다.
+- 러닝 시작 카운트다운을 음성으로 읽는다("삼 · 이 · 일 · 시작").
+- 러닝을 저장하면 총정리를 음성으로 읽는다.
+- **카운트다운과 총정리는 음성 안내가 켜져 있을 때만 나온다.** 두 축이 모두
+  `끔`이면 지금처럼 무음이다.
 - 설정 화면에 미리듣기 버튼을 둔다.
 - 음성이 나오지 않아도(TTS 엔진 없음·음소거·권한 문제) 러닝 기록에는 아무
   영향이 없어야 한다.
@@ -103,6 +107,63 @@ km ↔ mi를 바꿔도 숫자를 변환하지 않는다.** `1`을 골라둔 사�
   재사용한다. 화면의 `GoalDeltaLine`과 같은 함수를 쓰므로 눈으로 본 값과 귀로
   들은 값이 어긋날 수 없다. `goalDeltaM()`은 경과 30초 미만이면 `null`을
   반환하므로 GPS 워밍업 구간의 엉뚱한 안내도 자동으로 막힌다.
+
+## 시작 카운트다운 음성
+
+기존 카운트다운(`3` → `2` → `1` → `시작!`)의 각 틱에 발화를 얹는다. 화면 숫자가
+바뀌는 순간과 발화 시점이 정확히 같다.
+
+| 화면 | 발화 |
+|---|---|
+| `3` | "삼" |
+| `2` | "이" |
+| `1` | "일" |
+| `시작!` | "시작" |
+
+`speakCue()`가 발화 전에 `Speech.stop()`을 부르므로, 앞 숫자가 아직 끝나지
+않았어도 다음 숫자에 잘리고 밀리지 않는다. 카운트다운은 1초 간격이고 발화는
+한 음절이라 실제로 겹칠 일은 드물다.
+
+카운트다운을 취소하면 `stopSpeaking()`으로 발화도 끊는다.
+
+### 오디오 세션은 `onStart()`에서 잡는다
+
+원래 `beginRun()`(카운트다운 0초)에서 부르려 했지만, 그러면 "삼"이 세션이
+잡히기 전에 나가 첫 숫자가 씹힌다. **`configureVoiceAudio()`를 `onStart()`의
+`startTracking()` 성공 직후, `applyCountdown(COUNTDOWN_START)` 직전으로
+옮기고 `await` 한다.** `onStart()`는 이미 비동기이고 `startTracking()`을
+기다리므로 한 번 더 기다려도 흐름이 달라지지 않는다.
+
+음성 안내가 꺼져 있으면 세션을 잡지 않는다 — 뛰는 동안에도 발화할 일이 없기
+때문이다.
+
+러닝 도중에 설정에서 음성 안내를 처음 켜는 경우를 위해, `useVoiceCues`가
+`status === 'running' && 음성 안내 켜짐`일 때 `configureVoiceAudio()`를 한 번 더
+부른다. 이 함수는 멱등이라 중복 호출 비용이 없고, 첫 안내는 아무리 빨라도
+1분 뒤라 비동기 설정이 끝날 시간이 충분하다.
+
+## 종료 총정리 음성
+
+**저장에 성공했을 때만** 읽는다. 버리기를 고른 기록에 "수고하셨습니다"가
+나오는 것은 어색하다.
+
+> "수고하셨습니다. 총 35분 12초, 5.2킬로미터. 평균 페이스 킬로미터당 6분 45초.
+> 목표 5킬로미터를 달성했습니다."
+
+목표 **거리**가 설정되어 있을 때만 마지막 문장이 붙는다. 러닝 중 안내가 목표
+**페이스**를 다루는 것과 짝을 이룬다 — 달리는 동안에는 페이스가, 끝나고 나서는
+거리가 관심사다.
+
+| 상황 | 마지막 문장 |
+|---|---|
+| 목표 거리 달성 | "목표 5킬로미터를 달성했습니다." |
+| 미달 | "목표 5킬로미터에 320미터 못 미쳤습니다." |
+| 목표 거리 미설정 | (없음) |
+
+조사는 단위에 따라 다르다 — `킬로미터를`, `마일을`.
+
+값은 저장에 쓴 것과 같다(`durationSec`, `distanceM`). `runStore.reset()`이
+상태를 비우기 전에 이미 지역 변수로 잡아둔 값이라 리셋 순서와 무관하다.
 
 ## 트리거 판정
 
@@ -200,8 +261,9 @@ iOS `UIBackgroundModes`에 `"audio"`가 붙는다(기존 `"location"`은 유지)
 ### `src/services/speech.ts`
 
 ```ts
-export async function configureVoiceAudio(): Promise<void>;  // setAudioModeAsync, 1회만
-export function speakCue(text: string): void;                // Speech.stop() 후 speak
+export async function configureVoiceAudio(): Promise<void>;   // setAudioModeAsync, 1회만
+export function speakCue(text: string): void;                 // Speech.stop() 후 speak
+export function speakIfVoiceGuideOn(text: string | null): void; // 음성 안내 켜짐일 때만
 export function stopSpeaking(): void;
 ```
 
@@ -215,10 +277,15 @@ setAudioModeAsync({
 });
 ```
 
-**`configureVoiceAudio()`는 앱 부팅이 아니라 `beginRun()` 시점에 부른다.**
-뛰지도 않는 동안 오디오 세션을 잡아두면 다른 앱의 음악 재생에 간섭하게 된다.
-미리듣기 버튼도 발화 직전에 이 함수를 먼저 부른다. 내부 플래그로 중복 호출을
-막는다.
+**`configureVoiceAudio()`는 앱 부팅이 아니라 `onStart()`(카운트다운 직전)에서
+부른다.** 뛰지도 않는 동안 오디오 세션을 잡아두면 다른 앱의 음악 재생에
+간섭하게 된다. 미리듣기 버튼도 발화 직전에 이 함수를 먼저 부른다 — 미리듣기는
+음성 안내가 아직 꺼져 있어도 들려야 하므로, 켜짐 여부 확인은 이 함수 안이
+아니라 호출부에서 한다. 내부 플래그로 중복 호출을 막는다.
+
+`speakIfVoiceGuideOn(text)`는 음성 안내가 켜져 있을 때만 발화하는 얇은 래퍼다.
+카운트다운과 총정리가 이것을 쓴다. 주기 안내는 애초에 축이 켜져 있어야
+트리거되므로 `speakCue()`를 직접 쓴다.
 
 `speakCue()`는 발화 전에 `Speech.stop()`을 부른다. `Speech.speak()`는 발화
 중에 호출하면 큐에 쌓이는데, 안내가 밀리면 3분 전 거리를 읽는 사태가 난다.
@@ -259,6 +326,15 @@ no-op이다.
   - 경과 1시간 초과 시 "시간"이 붙는다
   - `mi` 단위에서 "마일" · "마일당"
   - 거리 소수점 끝 0 제거 (`5.20` → `5.2`, `5.00` → `5`)
+- `countdownCueText`
+  - `3`·`2`·`1` → "삼"·"이"·"일", `0` → "시작"
+  - 범위 밖 숫자는 `null`
+- `voiceSummaryText`
+  - 목표 거리 미설정이면 세 문장
+  - 목표 달성 / 미달 두 문구, 미달은 남은 거리를 미터로 읽는다
+  - 단위별 조사 (`킬로미터를` / `마일을`)
+- `isVoiceGuideOn`
+  - 둘 다 `null`이면 `false`, 하나라도 켜져 있으면 `true`
 
 `src/stores/__tests__/settingsStore.test.ts`
 
@@ -272,6 +348,9 @@ no-op이다.
 - `speakCue()`가 발화 전에 `Speech.stop()`을 부른다
 - `Speech.speak`가 throw해도 `speakCue()`가 throw하지 않는다
 - `configureVoiceAudio()`를 두 번 불러도 `setAudioModeAsync`는 1회만 불린다
+- `speakIfVoiceGuideOn()`이 두 축 모두 `끔`이면 발화하지 않는다
+- `speakIfVoiceGuideOn()`이 한 축이라도 켜져 있으면 발화한다
+- `speakIfVoiceGuideOn(null)`은 아무것도 하지 않는다
 
 ## 실기기 확인 (자동화 불가)
 
@@ -279,6 +358,11 @@ no-op이다.
 - 음악 재생 중 안내 동안만 볼륨이 낮아지고 안내 후 복귀하는지
 - iOS 무음 스위치가 켜져 있어도 안내가 들리는지
 - 거리·시간을 둘 다 켜고 뛰었을 때 중복 발화가 없는지
+- 카운트다운 "삼·이·일·시작"이 화면 숫자와 같은 박자로 나오는지 (첫 숫자가
+  씹히지 않는지)
+- 카운트다운 취소 시 발화가 즉시 끊기는지
+- 저장 직후 총정리가 나오고, 버리기에서는 나오지 않는지
+- 음성 안내를 둘 다 `끔`으로 두면 카운트다운·총정리도 무음인지
 
 ## 변경 파일
 
@@ -296,13 +380,15 @@ no-op이다.
 - `src/stores/settingsStore.ts` — 필드 2개 추가
 - `src/stores/__tests__/settingsStore.test.ts` — 케이스 추가
 - `app/(tabs)/settings.tsx` — `VoiceGuideSection` 배치
-- `app/(tabs)/index.tsx` — `useVoiceCues()` 호출, 종료·버리기 시 `stopSpeaking()`
+- `app/(tabs)/index.tsx` — `useVoiceCues()` 호출, `onStart()`에서 오디오 세션
+  설정, 카운트다운 틱 발화, 저장 성공 시 총정리, 종료·버리기·취소 시
+  `stopSpeaking()`
 - `app.json` — `expo-audio` 플러그인
 - `package.json` — `expo-speech`, `expo-audio`
 
 ## 범위 밖
 
-- 러닝 시작·종료 시점의 음성 안내
 - 음성 속도·음높이·목소리 선택
 - 케이던스·고도 등 다른 지표의 음성 안내
-- 목표 거리 달성 시 별도 안내
+- 러닝 중 목표 거리 달성 시점의 즉시 안내 (총정리에서만 다룬다)
+- 카운트다운 숫자·간격 변경 (기존 `COUNTDOWN_START = 3`, 1초 간격 그대로)
