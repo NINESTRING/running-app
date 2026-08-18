@@ -132,3 +132,58 @@ export function isVoiceGuideOn(
 ): boolean {
   return distanceUnits !== null || timeMin !== null;
 }
+
+/**
+ * 안내 트리거 판정 상태. 마일스톤 "번호"가 아니라 마지막으로 판정한 원값을 들고 있다 —
+ * 러닝 중 간격 설정을 바꿔도 번호의 의미가 달라지지 않아야 하기 때문이다.
+ */
+export interface VoiceCueState {
+  lastDistanceM: number;
+  lastElapsedMs: number;
+}
+
+export const INITIAL_VOICE_CUE_STATE: VoiceCueState = {
+  lastDistanceM: 0,
+  lastElapsedMs: 0,
+};
+
+export type VoiceCue = 'distance' | 'time' | null;
+
+/**
+ * 이번 틱에 안내를 내보낼지 판정한다.
+ *
+ * 반환 state는 cue 여부와 무관하게 **항상 현재 값으로 갱신**된다. 이 규칙 하나가
+ * 세 가지를 동시에 처리한다:
+ * - 거리·시간이 같은 틱에 걸려도 발화는 한 번 (시간 축 기준점도 함께 밀린다)
+ * - 백그라운드에서 마일스톤 여러 개가 지나가도 밀린 안내를 몰아 읽지 않는다
+ * - 러닝 중 축을 껐다 켜거나 간격을 바꿔도 다음 마일스톤부터 울린다
+ */
+export function nextVoiceCue(p: {
+  distanceM: number;
+  elapsedMs: number;
+  unit: 'km' | 'mi';
+  distanceUnits: number | null; // null = 거리 안내 끔
+  timeMin: number | null; // null = 시간 안내 끔
+  state: VoiceCueState;
+}): { state: VoiceCueState; cue: VoiceCue } {
+  const state: VoiceCueState = {
+    lastDistanceM: p.distanceM,
+    lastElapsedMs: p.elapsedMs,
+  };
+
+  if (p.distanceUnits !== null) {
+    const step = p.distanceUnits * unitMeters(p.unit);
+    if (Math.floor(p.distanceM / step) > Math.floor(p.state.lastDistanceM / step)) {
+      return { state, cue: 'distance' };
+    }
+  }
+
+  if (p.timeMin !== null) {
+    const step = p.timeMin * 60_000;
+    if (Math.floor(p.elapsedMs / step) > Math.floor(p.state.lastElapsedMs / step)) {
+      return { state, cue: 'time' };
+    }
+  }
+
+  return { state, cue: null };
+}

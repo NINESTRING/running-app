@@ -1,7 +1,9 @@
 import { METERS_PER_MILE } from '../geo';
 import {
   countdownCueText,
+  INITIAL_VOICE_CUE_STATE,
   isVoiceGuideOn,
+  nextVoiceCue,
   speakDuration,
   speakGoalDelta,
   speakNumber,
@@ -226,5 +228,191 @@ describe('isVoiceGuideOn', () => {
     expect(isVoiceGuideOn(1, null)).toBe(true);
     expect(isVoiceGuideOn(null, 5)).toBe(true);
     expect(isVoiceGuideOn(0.5, 2)).toBe(true);
+  });
+});
+
+describe('nextVoiceCue', () => {
+  const base = {
+    unit: 'km' as const,
+    distanceUnits: 1 as number | null,
+    timeMin: 1 as number | null,
+    state: INITIAL_VOICE_CUE_STATE,
+  };
+
+  test('거리 마일스톤에 닿으면 distance', () => {
+    const r = nextVoiceCue({ ...base, timeMin: null, distanceM: 1000, elapsedMs: 0 });
+    expect(r.cue).toBe('distance');
+  });
+
+  test('거리 마일스톤 직전이면 발화하지 않는다', () => {
+    const r = nextVoiceCue({ ...base, timeMin: null, distanceM: 999, elapsedMs: 0 });
+    expect(r.cue).toBeNull();
+  });
+
+  test('시간 마일스톤에 닿으면 time', () => {
+    const r = nextVoiceCue({ ...base, distanceUnits: null, distanceM: 0, elapsedMs: 60_000 });
+    expect(r.cue).toBe('time');
+  });
+
+  test('같은 틱에 둘 다 닿으면 distance 하나만 나가고 다음 틱은 조용하다', () => {
+    const first = nextVoiceCue({ ...base, distanceM: 1000, elapsedMs: 60_000 });
+    expect(first.cue).toBe('distance');
+
+    // 1초 뒤: 거리·시간 모두 같은 마일스톤 구간 안이므로 시간 안내가 뒤따르지 않는다
+    const second = nextVoiceCue({
+      ...base,
+      distanceM: 1003,
+      elapsedMs: 61_000,
+      state: first.state,
+    });
+    expect(second.cue).toBeNull();
+  });
+
+  test('마일스톤 여러 개를 한 번에 건너뛰어도 발화는 1회', () => {
+    const first = nextVoiceCue({
+      ...base,
+      timeMin: null,
+      distanceM: 3200,
+      elapsedMs: 0,
+      state: { lastDistanceM: 900, lastElapsedMs: 0 },
+    });
+    expect(first.cue).toBe('distance');
+    expect(first.state.lastDistanceM).toBe(3200);
+
+    const second = nextVoiceCue({
+      ...base,
+      timeMin: null,
+      distanceM: 3300,
+      elapsedMs: 0,
+      state: first.state,
+    });
+    expect(second.cue).toBeNull();
+  });
+
+  test('축이 null이면 그 축은 절대 발화하지 않는다', () => {
+    const r = nextVoiceCue({
+      ...base,
+      distanceUnits: null,
+      timeMin: null,
+      distanceM: 5000,
+      elapsedMs: 600_000,
+    });
+    expect(r.cue).toBeNull();
+  });
+
+  test('발화하지 않아도 기준점은 항상 현재 값으로 갱신된다', () => {
+    const r = nextVoiceCue({
+      ...base,
+      distanceUnits: null,
+      timeMin: null,
+      distanceM: 3200,
+      elapsedMs: 600_000,
+    });
+    expect(r.state).toEqual({ lastDistanceM: 3200, lastElapsedMs: 600_000 });
+  });
+
+  test('러닝 중 축을 껐다 켜도 그동안 지나간 마일스톤이 터지지 않는다', () => {
+    // 꺼진 동안에도 기준점이 따라 올라간다
+    const off = nextVoiceCue({
+      ...base,
+      distanceUnits: null,
+      timeMin: null,
+      distanceM: 3200,
+      elapsedMs: 600_000,
+    });
+    // 다시 켠 직후
+    const on = nextVoiceCue({
+      ...base,
+      timeMin: null,
+      distanceM: 3250,
+      elapsedMs: 600_000,
+      state: off.state,
+    });
+    expect(on.cue).toBeNull();
+
+    // 다음 마일스톤부터 정상 발화
+    const next = nextVoiceCue({
+      ...base,
+      timeMin: null,
+      distanceM: 4000,
+      elapsedMs: 600_000,
+      state: on.state,
+    });
+    expect(next.cue).toBe('distance');
+  });
+
+  test('간격을 1에서 2로 바꿔도 경계 근처에서 즉시 재발화하지 않는다', () => {
+    const r = nextVoiceCue({
+      ...base,
+      distanceUnits: 2,
+      timeMin: null,
+      distanceM: 2050,
+      elapsedMs: 0,
+      state: { lastDistanceM: 2010, lastElapsedMs: 0 },
+    });
+    expect(r.cue).toBeNull();
+
+    const next = nextVoiceCue({
+      ...base,
+      distanceUnits: 2,
+      timeMin: null,
+      distanceM: 4000,
+      elapsedMs: 0,
+      state: r.state,
+    });
+    expect(next.cue).toBe('distance');
+  });
+
+  test('0.5 간격도 동작한다', () => {
+    const r = nextVoiceCue({
+      ...base,
+      distanceUnits: 0.5,
+      timeMin: null,
+      distanceM: 500,
+      elapsedMs: 0,
+    });
+    expect(r.cue).toBe('distance');
+  });
+
+  test('mi 단위는 마일 기준으로 판정한다', () => {
+    const notYet = nextVoiceCue({
+      ...base,
+      unit: 'mi',
+      timeMin: null,
+      distanceM: 1000,
+      elapsedMs: 0,
+    });
+    expect(notYet.cue).toBeNull();
+
+    const reached = nextVoiceCue({
+      ...base,
+      unit: 'mi',
+      timeMin: null,
+      distanceM: METERS_PER_MILE,
+      elapsedMs: 0,
+    });
+    expect(reached.cue).toBe('distance');
+  });
+
+  test('시간 간격 2분·5분', () => {
+    expect(
+      nextVoiceCue({ ...base, distanceUnits: null, timeMin: 2, distanceM: 0, elapsedMs: 120_000 })
+        .cue,
+    ).toBe('time');
+    expect(
+      nextVoiceCue({ ...base, distanceUnits: null, timeMin: 5, distanceM: 0, elapsedMs: 240_000 })
+        .cue,
+    ).toBeNull();
+  });
+
+  test('거리가 뒤로 가도(GPS 보정) 발화하지 않는다', () => {
+    const r = nextVoiceCue({
+      ...base,
+      timeMin: null,
+      distanceM: 1900,
+      elapsedMs: 0,
+      state: { lastDistanceM: 2010, lastElapsedMs: 0 },
+    });
+    expect(r.cue).toBeNull();
   });
 });
