@@ -363,7 +363,7 @@ export default function HomeScreen() {
             </Pressable>
           </View>
         )}
-        <Card>
+        <Card className={cn(statsOnTop && 'py-0')}>
           <CardContent className="gap-3 p-4">
             {permissionDenied && (
               <Pressable onPress={() => Linking.openSettings()}>
@@ -402,26 +402,26 @@ export default function HomeScreen() {
               )}
               {status === 'running' && (
                 <>
-                  <Button size="lg" variant="secondary" onPress={onPause}>
+                  <Button className="flex-1" size="lg" variant="secondary" onPress={onPause}>
                     <Text>일시정지</Text>
                   </Button>
-                  <Button size="lg" variant="destructive" onPress={onStopPressed}>
+                  <Button className="flex-1" size="lg" variant="destructive" onPress={onStopPressed}>
                     <Text>종료</Text>
                   </Button>
                 </>
               )}
               {status === 'paused' && (
                 <>
-                  <Button size="lg" onPress={onResume}>
+                  <Button className="flex-1" size="lg" onPress={onResume}>
                     <Text>재개</Text>
                   </Button>
-                  <Button size="lg" variant="destructive" onPress={onStopPressed}>
+                  <Button className="flex-1" size="lg" variant="destructive" onPress={onStopPressed}>
                     <Text>종료</Text>
                   </Button>
                 </>
               )}
               {status === 'saving' && (
-                <Button size="lg" variant="destructive" disabled>
+                <Button className="flex-1" size="lg" variant="destructive" disabled>
                   <Text>저장 중…</Text>
                 </Button>
               )}
