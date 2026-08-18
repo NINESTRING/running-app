@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 러닝 중 설정한 거리·시간 주기마다 경과 시간·거리·평균 페이스·목표 대비 편차를 음성으로 읽어준다.
+**Goal:** 러닝 중 설정한 거리·시간 주기마다 경과 시간·거리·평균 페이스·목표 대비 편차를 음성으로 읽어주고, 시작 카운트다운과 종료 총정리도 음성으로 안내한다.
 
-**Architecture:** 트리거 판정과 문장 생성을 `src/lib/voice.ts`의 순수 함수로 몰아 전부 노드에서 테스트한다. 부수효과(TTS 발화, 오디오 세션)는 `src/services/speech.ts`에 격리하고 모든 실패를 삼킨다. 배선은 `src/hooks/useVoiceCues.ts` 훅 하나가 담당해 `app/(tabs)/index.tsx`에는 호출 한 줄만 늘어난다. 판정 상태는 `useRef`에 두어 리렌더를 유발하지 않는다.
+**Architecture:** 트리거 판정과 문장 생성을 `src/lib/voice.ts`의 순수 함수로 몰아 전부 노드에서 테스트한다. 부수효과(TTS 발화, 오디오 세션)는 `src/services/speech.ts`에 격리하고 모든 실패를 삼킨다. 주기 안내 배선은 `src/hooks/useVoiceCues.ts` 훅 하나가 담당하고, 카운트다운·총정리는 이미 존재하는 `app/(tabs)/index.tsx`의 카운트다운 이펙트와 `onStop` 핸들러에 한 줄씩 얹는다. 판정 상태는 `useRef`에 두어 리렌더를 유발하지 않는다.
 
 **Tech Stack:** Expo SDK 57(React Native 0.86), expo-speech, expo-audio, zustand + persist, NativeWind 4, 기존 `@/components/ui/toggle-group`·`@/components/ui/button`·`@/components/ui/text`.
 
@@ -18,16 +18,19 @@
 - 안내 언어는 `ko-KR`. 문장 구분자는 마침표 + 공백(`. `)이고 문장 끝에도 마침표를 찍는다.
 - 발화 실패·오디오 세션 실패는 **절대 throw하지 않는다.** `console.warn`만 남기고 정상 반환한다. 러닝 기록에 영향이 없어야 한다.
 - `Platform.OS === 'web'`이면 `src/services/speech.ts`의 모든 함수는 no-op이다.
-- 일시정지·저장 중에는 발화하지 않는다. 시간·거리는 항상 **일시정지를 제외한** 값(`elapsedMs`, `distanceM`)을 쓴다.
+- 주기 안내는 일시정지·저장 중에 발화하지 않는다. 시간·거리는 항상 **일시정지를 제외한** 값(`elapsedMs`, `distanceM`)을 쓴다.
+- **카운트다운과 총정리는 음성 안내가 켜져 있을 때만 발화한다**(두 축 중 하나라도 켜짐). 둘 다 `끔`이면 무음이다.
+- 총정리는 **저장 성공 시에만** 읽는다. 버리기·저장 실패에서는 읽지 않는다.
+- 카운트다운 숫자·간격은 바꾸지 않는다 — 기존 `COUNTDOWN_START = 3`, 1초 간격, `COUNTDOWN_EXIT_MS = 500` 그대로다.
 - 검증: `npm test`, `npx tsc --noEmit`, `npm run lint` 모두 기존 대비 회귀 없음.
 - 이 저장소에는 컴포넌트/훅 테스트 인프라(`@testing-library/react-native` 등)가 없다. **테스트 라이브러리를 새로 도입하지 않는다.** 컴포넌트와 훅은 수동 확인으로 검증한다.
 - 커밋 메시지는 한국어 Conventional Commits(`feat(voice): …`, `test(voice): …`). 기존 이력과 같은 형식이다.
 
 ---
 
-### Task 1: 음성 전용 포매터와 안내 문장 생성
+### Task 1: 음성 전용 포매터와 안내·카운트다운·총정리 문장 생성
 
-화면용 포매터(`formatPace` → `6'45"`, `formatDistance` → `5.20`)는 TTS에 그대로 넣을 수 없다. 음성 전용 포매터를 새로 만들고 이를 조합해 안내 문장을 만든다. 전부 순수 함수다.
+화면용 포매터(`formatPace` → `6'45"`, `formatDistance` → `5.20`)는 TTS에 그대로 넣을 수 없다. 음성 전용 포매터를 새로 만들고 이를 조합해 세 종류의 문장(주기 안내·카운트다운·종료 총정리)을 만든다. 전부 순수 함수다.
 
 **Files:**
 - Create: `src/lib/voice.ts`
@@ -41,6 +44,9 @@
   - `speakPace(secPerUnit: number | null, unit: 'km' | 'mi'): string`
   - `speakGoalDelta(deltaM: number | null): string | null`
   - `voiceCueText(p: { elapsedMs: number; distanceM: number; unit: 'km' | 'mi'; paceSecPerUnit: number | null; goalDeltaM: number | null }): string`
+  - `countdownCueText(tick: number): string | null`
+  - `voiceSummaryText(p: { elapsedMs: number; distanceM: number; unit: 'km' | 'mi'; paceSecPerUnit: number | null; goalDistanceUnits: number | null }): string`
+  - `isVoiceGuideOn(distanceUnits: number | null, timeMin: number | null): boolean`
 
 - [ ] **Step 1: 실패하는 테스트 작성**
 
@@ -49,11 +55,14 @@
 ```ts
 import { METERS_PER_MILE } from '../geo';
 import {
+  countdownCueText,
+  isVoiceGuideOn,
   speakDuration,
   speakGoalDelta,
   speakNumber,
   speakPace,
   voiceCueText,
+  voiceSummaryText,
 } from '../voice';
 
 describe('speakNumber', () => {
@@ -198,6 +207,82 @@ describe('voiceCueText', () => {
     ).toContain('목표보다 80미터 뒤쳐져 있습니다.');
   });
 });
+
+describe('countdownCueText', () => {
+  test('3·2·1은 한글 수사로 읽는다', () => {
+    expect(countdownCueText(3)).toBe('삼');
+    expect(countdownCueText(2)).toBe('이');
+    expect(countdownCueText(1)).toBe('일');
+  });
+
+  test('0은 시작', () => {
+    expect(countdownCueText(0)).toBe('시작');
+  });
+
+  test('범위 밖 숫자는 null', () => {
+    expect(countdownCueText(11)).toBeNull();
+    expect(countdownCueText(-1)).toBeNull();
+  });
+});
+
+describe('voiceSummaryText', () => {
+  const base = {
+    elapsedMs: 35 * 60_000 + 12_000,
+    distanceM: 5200,
+    unit: 'km' as const,
+    paceSecPerUnit: 405,
+  };
+
+  test('목표 거리가 없으면 세 문장', () => {
+    expect(voiceSummaryText({ ...base, goalDistanceUnits: null })).toBe(
+      '수고하셨습니다. 총 35분 12초, 5.2킬로미터. 평균 페이스 킬로미터당 6분 45초.',
+    );
+  });
+
+  test('목표 거리를 달성하면 달성 문장이 붙는다', () => {
+    expect(voiceSummaryText({ ...base, goalDistanceUnits: 5 })).toBe(
+      '수고하셨습니다. 총 35분 12초, 5.2킬로미터. 평균 페이스 킬로미터당 6분 45초. 목표 5킬로미터를 달성했습니다.',
+    );
+  });
+
+  test('미달이면 남은 거리를 미터로 읽는다', () => {
+    expect(
+      voiceSummaryText({ ...base, distanceM: 4680, goalDistanceUnits: 5 }),
+    ).toContain('목표 5킬로미터에 320미터 못 미쳤습니다.');
+  });
+
+  test('목표 거리와 정확히 같으면 달성이다', () => {
+    expect(
+      voiceSummaryText({ ...base, distanceM: 5000, goalDistanceUnits: 5 }),
+    ).toContain('목표 5킬로미터를 달성했습니다.');
+  });
+
+  test('mi 단위는 조사가 을이다', () => {
+    expect(
+      voiceSummaryText({
+        ...base,
+        unit: 'mi',
+        distanceM: 3 * METERS_PER_MILE,
+        paceSecPerUnit: 652,
+        goalDistanceUnits: 3,
+      }),
+    ).toBe(
+      '수고하셨습니다. 총 35분 12초, 3마일. 평균 페이스 마일당 10분 52초. 목표 3마일을 달성했습니다.',
+    );
+  });
+});
+
+describe('isVoiceGuideOn', () => {
+  test('둘 다 끔이면 false', () => {
+    expect(isVoiceGuideOn(null, null)).toBe(false);
+  });
+
+  test('하나라도 켜져 있으면 true', () => {
+    expect(isVoiceGuideOn(1, null)).toBe(true);
+    expect(isVoiceGuideOn(null, 5)).toBe(true);
+    expect(isVoiceGuideOn(0.5, 2)).toBe(true);
+  });
+});
 ```
 
 - [ ] **Step 2: 테스트가 실패하는지 확인**
@@ -286,6 +371,64 @@ export function voiceCueText(p: {
   if (delta !== null) sentences.push(delta);
   return `${sentences.join('. ')}.`;
 }
+
+// 한글 수사 0~10. TTS가 "3"을 읽는 방식에 기대지 않고 직접 적는다.
+const SINO_NUMBERS = ['영', '일', '이', '삼', '사', '오', '육', '칠', '팔', '구', '십'];
+
+/**
+ * 시작 카운트다운 한 틱의 발화. `0`은 러닝이 시작되는 순간이라 "시작"으로 읽는다.
+ * COUNTDOWN_START를 늘려도 10까지는 동작하고, 그 밖은 null(무음)이다.
+ */
+export function countdownCueText(tick: number): string | null {
+  if (tick === 0) return '시작';
+  if (!Number.isInteger(tick) || tick < 0) return null;
+  return SINO_NUMBERS[tick] ?? null;
+}
+
+// 목적격 조사는 받침 유무를 따른다 — "킬로미터를", "마일을"
+const UNIT_OBJECT: Record<'km' | 'mi', string> = { km: '를', mi: '을' };
+
+/**
+ * 러닝 저장 성공 후 읽는 총정리.
+ *
+ * 목표 **거리**가 설정되어 있을 때만 마지막 문장이 붙는다. 달리는 동안에는
+ * 목표 페이스가 관심사지만, 끝나고 나서는 목표 거리를 채웠는지가 관심사다.
+ */
+export function voiceSummaryText(p: {
+  elapsedMs: number;
+  distanceM: number;
+  unit: 'km' | 'mi';
+  paceSecPerUnit: number | null;
+  goalDistanceUnits: number | null;
+}): string {
+  const unitM = unitMeters(p.unit);
+  const noun = UNIT_NOUN[p.unit];
+  const sentences = [
+    '수고하셨습니다',
+    `총 ${speakDuration(p.elapsedMs)}, ${speakNumber(p.distanceM / unitM)}${noun}`,
+    speakPace(p.paceSecPerUnit, p.unit),
+  ];
+
+  if (p.goalDistanceUnits !== null) {
+    const goalM = p.goalDistanceUnits * unitM;
+    const goalNoun = `${speakNumber(p.goalDistanceUnits)}${noun}`;
+    sentences.push(
+      p.distanceM >= goalM
+        ? `목표 ${goalNoun}${UNIT_OBJECT[p.unit]} 달성했습니다`
+        : `목표 ${goalNoun}에 ${Math.round(goalM - p.distanceM)}미터 못 미쳤습니다`,
+    );
+  }
+
+  return `${sentences.join('. ')}.`;
+}
+
+/** 음성 안내가 켜져 있는가. 두 축 중 하나라도 켜져 있으면 켜진 것이다. */
+export function isVoiceGuideOn(
+  distanceUnits: number | null,
+  timeMin: number | null,
+): boolean {
+  return distanceUnits !== null || timeMin !== null;
+}
 ```
 
 - [ ] **Step 4: 테스트가 통과하는지 확인**
@@ -297,7 +440,7 @@ Expected: PASS (전부 통과)
 
 ```bash
 git add src/lib/voice.ts src/lib/__tests__/voice.test.ts
-git commit -m "feat(voice): 음성 전용 포매터와 안내 문장 생성"
+git commit -m "feat(voice): 음성 전용 포매터와 안내·카운트다운·총정리 문장 생성"
 ```
 
 ---
@@ -779,11 +922,14 @@ git commit -m "feat(voice): 설정 스토어에 음성 안내 주기 추가"
 - Modify: `package.json`, `package-lock.json` (설치 결과)
 
 **Interfaces:**
-- Consumes: `expo-speech`의 `speak`·`stop`, `expo-audio`의 `setAudioModeAsync`.
-- Produces: 다음 심볼을 export 한다. Task 5가 `configureVoiceAudio`·`speakCue`를, Task 6이 셋 다 import 한다.
+- Consumes: `expo-speech`의 `speak`·`stop`, `expo-audio`의 `setAudioModeAsync`, Task 1의 `isVoiceGuideOn`, Task 3의 `useSettingsStore`.
+- Produces: 다음 심볼을 export 한다. Task 5가 `configureVoiceAudio`·`speakCue`를, Task 6이 `configureVoiceAudio`·`speakCue`·`speakIfVoiceGuideOn`·`stopSpeaking`을 import 한다.
   - `configureVoiceAudio(): Promise<void>`
   - `speakCue(text: string): void`
+  - `speakIfVoiceGuideOn(text: string | null): void`
   - `stopSpeaking(): void`
+
+**의존 순서 주의:** 이 태스크는 Task 1(`isVoiceGuideOn`)과 Task 3(`useSettingsStore`)이 먼저 끝나 있어야 한다.
 
 - [ ] **Step 1: 의존성 설치**
 
@@ -832,6 +978,7 @@ jest.mock('expo-audio', () => ({
 }));
 
 let speech: typeof import('../speech');
+let settings: typeof import('../../stores/settingsStore');
 
 beforeEach(() => {
   jest.resetModules();
@@ -840,7 +987,10 @@ beforeEach(() => {
   jest.resetAllMocks();
   mockSetAudioMode.mockResolvedValue(undefined);
   Platform.OS = 'ios';
+  // 두 모듈을 같은 resetModules 뒤에 require 해야 speech.ts가 보는 스토어와
+  // 테스트가 조작하는 스토어가 같은 인스턴스가 된다.
   speech = require('../speech');
+  settings = require('../../stores/settingsStore');
 });
 
 describe('speakCue', () => {
@@ -873,6 +1023,33 @@ describe('speakCue', () => {
     Platform.OS = 'web';
 
     speech.speakCue('5킬로미터');
+
+    expect(mockSpeak).not.toHaveBeenCalled();
+  });
+});
+
+describe('speakIfVoiceGuideOn', () => {
+  it('두 축 모두 끔이면 발화하지 않는다', () => {
+    settings.useSettingsStore.setState({ voiceDistanceUnits: null, voiceTimeMin: null });
+
+    speech.speakIfVoiceGuideOn('시작');
+
+    expect(mockSpeak).not.toHaveBeenCalled();
+  });
+
+  it('한 축이라도 켜져 있으면 발화한다', () => {
+    settings.useSettingsStore.setState({ voiceDistanceUnits: null, voiceTimeMin: 1 });
+
+    speech.speakIfVoiceGuideOn('시작');
+
+    expect(mockSpeak).toHaveBeenCalledTimes(1);
+    expect(mockSpeak.mock.calls[0][0]).toBe('시작');
+  });
+
+  it('null이면 아무것도 하지 않는다', () => {
+    settings.useSettingsStore.setState({ voiceDistanceUnits: 1, voiceTimeMin: 1 });
+
+    speech.speakIfVoiceGuideOn(null);
 
     expect(mockSpeak).not.toHaveBeenCalled();
   });
@@ -944,6 +1121,8 @@ Expected: FAIL — `Cannot find module '../speech'`
 import { Platform } from 'react-native';
 import { setAudioModeAsync } from 'expo-audio';
 import * as Speech from 'expo-speech';
+import { isVoiceGuideOn } from '../lib/voice';
+import { useSettingsStore } from '../stores/settingsStore';
 
 const LANGUAGE = 'ko-KR';
 
@@ -992,7 +1171,19 @@ export function speakCue(text: string): void {
   }
 }
 
-/** 진행 중인 발화를 중단한다. 러닝 종료·버리기 시 부른다. */
+/**
+ * 음성 안내가 켜져 있을 때만 발화한다. 카운트다운·총정리가 쓴다 —
+ * 이 둘은 트리거 판정을 거치지 않으므로 켜짐 여부를 직접 확인해야 한다.
+ * (주기 안내는 축이 켜져 있어야 트리거되므로 speakCue를 직접 쓴다.)
+ */
+export function speakIfVoiceGuideOn(text: string | null): void {
+  if (text === null) return;
+  const { voiceDistanceUnits, voiceTimeMin } = useSettingsStore.getState();
+  if (!isVoiceGuideOn(voiceDistanceUnits, voiceTimeMin)) return;
+  speakCue(text);
+}
+
+/** 진행 중인 발화를 중단한다. 러닝 종료·버리기·카운트다운 취소 시 부른다. */
 export function stopSpeaking(): void {
   if (Platform.OS === 'web') return;
   try {
@@ -1191,16 +1382,16 @@ git commit -m "feat(voice): 설정 화면에 음성 안내 주기와 미리듣�
 
 ---
 
-### Task 6: 러닝 화면 배선
+### Task 6: 러닝 화면 배선 (주기 안내·카운트다운·총정리)
 
-훅 하나가 판정·발화를 담당하고, `index.tsx`에는 호출 한 줄과 정리 코드만 늘어난다.
+주기 안내는 훅이 담당하고, 카운트다운·총정리는 이미 있는 카운트다운 이펙트와 `onStop` 핸들러에 한 줄씩 얹는다.
 
 **Files:**
 - Create: `src/hooks/useVoiceCues.ts`
 - Modify: `app/(tabs)/index.tsx`
 
 **Interfaces:**
-- Consumes: Task 1·2의 `voiceCueText`·`nextVoiceCue`·`INITIAL_VOICE_CUE_STATE`·`VoiceCueState`, Task 3의 `useSettingsStore`, Task 4의 `speakCue`, 기존 `src/lib/geo.ts`의 `paceSecPerUnit`, `src/lib/goal.ts`의 `goalDeltaM`, `src/stores/goalStore.ts`의 `useGoalStore`, `src/stores/runStore.ts`의 `RunStatus`.
+- Consumes: Task 1·2의 `voiceCueText`·`countdownCueText`·`voiceSummaryText`·`isVoiceGuideOn`·`nextVoiceCue`·`INITIAL_VOICE_CUE_STATE`·`VoiceCueState`, Task 3의 `useSettingsStore`, Task 4의 `configureVoiceAudio`·`speakCue`·`speakIfVoiceGuideOn`·`stopSpeaking`, 기존 `src/lib/geo.ts`의 `paceSecPerUnit`, `src/lib/goal.ts`의 `goalDeltaM`, `src/stores/goalStore.ts`의 `useGoalStore`, `src/stores/runStore.ts`의 `RunStatus`.
 - Produces: `useVoiceCues(p: { status: RunStatus; startedAt: number | null; distanceM: number; elapsedMs: number }): void`
 
 - [ ] **Step 1: 훅 생성**
@@ -1214,11 +1405,12 @@ import { paceSecPerUnit } from '@/lib/geo';
 import { goalDeltaM } from '@/lib/goal';
 import {
   INITIAL_VOICE_CUE_STATE,
+  isVoiceGuideOn,
   nextVoiceCue,
   voiceCueText,
   type VoiceCueState,
 } from '@/lib/voice';
-import { speakCue } from '@/services/speech';
+import { configureVoiceAudio, speakCue } from '@/services/speech';
 import { useGoalStore } from '@/stores/goalStore';
 import type { RunStatus } from '@/stores/runStore';
 import { useSettingsStore } from '@/stores/settingsStore';
@@ -1244,6 +1436,14 @@ export function useVoiceCues(p: {
   const cueStateRef = useRef<VoiceCueState>(INITIAL_VOICE_CUE_STATE);
   // 새 러닝을 알아보는 유일한 신호 — runStore.start()가 startedAt을 새로 세운다
   const runIdRef = useRef<number | null>(null);
+
+  // 러닝 도중에 설정에서 음성 안내를 처음 켜는 경우를 위한 보강.
+  // 평소에는 onStart()가 이미 세션을 잡아둔 뒤라 멱등 호출로 끝난다.
+  // idle에서는 부르지 않는다 — 안 뛰는 동안 세션을 잡으면 다른 앱 음악에 간섭한다.
+  useEffect(() => {
+    if (status !== 'running' || !isVoiceGuideOn(distanceUnits, timeMin)) return;
+    void configureVoiceAudio();
+  }, [status, distanceUnits, timeMin]);
 
   useEffect(() => {
     if (startedAt !== runIdRef.current) {
@@ -1284,12 +1484,19 @@ export function useVoiceCues(p: {
 
 - [ ] **Step 2: index.tsx에 import 추가**
 
-`app/(tabs)/index.tsx`의 import 블록에 아래 두 줄을 추가한다.
+`app/(tabs)/index.tsx`의 import 블록에 아래를 추가한다.
 
 ```tsx
 import { useVoiceCues } from '@/hooks/useVoiceCues';
-import { configureVoiceAudio, stopSpeaking } from '@/services/speech';
+import { countdownCueText, isVoiceGuideOn, voiceSummaryText } from '@/lib/voice';
+import {
+  configureVoiceAudio,
+  speakIfVoiceGuideOn,
+  stopSpeaking,
+} from '@/services/speech';
 ```
+
+기존 `import { goalDeltaM, goalDeltaStatus, goalSummary } from '@/lib/goal';` 줄은 그대로 둔다. `paceSecPerUnit`은 이미 `@/lib/geo`에서 가져오고 있으므로 추가 import가 필요 없다.
 
 - [ ] **Step 3: startedAt 구독 추가**
 
@@ -1307,17 +1514,74 @@ import { configureVoiceAudio, stopSpeaking } from '@/services/speech';
   useVoiceCues({ status, startedAt, distanceM, elapsedMs: elapsed });
 ```
 
-- [ ] **Step 5: 러닝 시작 시 오디오 세션 설정**
+- [ ] **Step 5: 카운트다운 직전에 오디오 세션 설정**
 
-`beginRun` 안, `fetchWeatherForRun().catch(() => {});` 바로 **아래** 줄에 추가한다.
+`onStart` 안에서, `startTracking()`의 `try/catch` 블록 **바로 다음**이자 `applyCountdown(COUNTDOWN_START);` **바로 앞**에 아래를 넣는다.
 
 ```tsx
-    // 오디오 세션은 뛰는 동안에만 잡는다 — 대기 중에 잡으면 다른 앱 음악에 간섭한다.
-    // 실패해도 함수 안에서 삼키므로 러닝 흐름에 영향이 없다.
-    void configureVoiceAudio();
+      // 카운트다운 첫 숫자("삼")가 세션이 잡히기 전에 나가면 씹힌다 — 여기서 기다린다.
+      // 음성 안내가 꺼져 있으면 뛰는 동안에도 발화할 일이 없으므로 세션을 잡지 않는다.
+      // configureVoiceAudio는 실패를 안에서 삼키므로 러닝 시작을 막지 않는다.
+      const { voiceDistanceUnits, voiceTimeMin } = useSettingsStore.getState();
+      if (isVoiceGuideOn(voiceDistanceUnits, voiceTimeMin)) {
+        await configureVoiceAudio();
+      }
 ```
 
-- [ ] **Step 6: 종료·버리기 시 발화 중단**
+결과적으로 `onStart`의 `try` 블록 끝부분이 아래 순서가 된다.
+
+```tsx
+      setPermissionDenied(false);
+      try {
+        await startTracking();
+      } catch (e) {
+        setDialog({
+          type: 'startError',
+          message: e instanceof Error ? e.message : String(e),
+        });
+        return;
+      }
+      const { voiceDistanceUnits, voiceTimeMin } = useSettingsStore.getState();
+      if (isVoiceGuideOn(voiceDistanceUnits, voiceTimeMin)) {
+        await configureVoiceAudio();
+      }
+      applyCountdown(COUNTDOWN_START);
+```
+
+`beginRun`에는 오디오 세션 관련 코드를 넣지 **않는다.** 여기서 이미 잡혀 있고, 러닝 도중 설정을 켜는 경우는 Step 1의 훅이 처리한다.
+
+- [ ] **Step 6: 카운트다운 틱 발화**
+
+카운트다운 `useEffect` 안, `if (countdown === null) return;` 바로 **아래**에 한 줄을 넣는다.
+
+```tsx
+    speakIfVoiceGuideOn(countdownCueText(countdown));
+```
+
+이 이펙트는 `countdown`이 바뀔 때마다 도므로 `3`·`2`·`1`·`0` 네 번 모두 화면 숫자와 같은 순간에 발화한다. 수정 후 이펙트 앞부분은 아래와 같다.
+
+```tsx
+  useEffect(() => {
+    if (countdown === null) return;
+    // 화면 숫자가 바뀌는 순간과 같은 박자로 읽는다. 음성 안내가 꺼져 있으면 무음.
+    speakIfVoiceGuideOn(countdownCueText(countdown));
+    if (countdown === 0) {
+      const t = setTimeout(() => applyCountdown(null), COUNTDOWN_EXIT_MS);
+      return () => clearTimeout(t);
+    }
+```
+
+나머지 본문은 건드리지 않는다.
+
+- [ ] **Step 7: 카운트다운 취소 시 발화 중단**
+
+`onCancelCountdown` 안, `applyCountdown(null);` 바로 **아래**에 추가한다.
+
+```tsx
+    stopSpeaking();
+```
+
+- [ ] **Step 8: 종료·버리기 시 발화 중단**
 
 `onDiscard` 안, `stopStepCounting();` 바로 **위**에 추가한다.
 
@@ -1331,21 +1595,46 @@ import { configureVoiceAudio, stopSpeaking } from '@/services/speech';
     stopSpeaking();
 ```
 
-- [ ] **Step 7: 타입 검사와 린트**
+- [ ] **Step 9: 저장 성공 시 총정리 발화**
+
+`onStop`의 `if (result.ok) { … }` 블록을 아래로 교체한다.
+
+```tsx
+    if (result.ok) {
+      useRunStore.getState().reset();
+      // 저장에 쓴 값 그대로 읽는다. durationSec·s.distanceM은 reset() 이전에
+      // 잡아둔 지역 변수라 리셋 순서와 무관하다.
+      const summaryElapsedMs = durationSec * 1000;
+      speakIfVoiceGuideOn(
+        voiceSummaryText({
+          elapsedMs: summaryElapsedMs,
+          distanceM: s.distanceM,
+          unit,
+          paceSecPerUnit: paceSecPerUnit(s.distanceM, summaryElapsedMs, unit),
+          goalDistanceUnits,
+        }),
+      );
+      setDialog({ type: 'saved' });
+    } else {
+```
+
+`unit`과 `goalDistanceUnits`는 `HomeScreen` 상단에서 이미 구독하고 있으므로 추가 작업이 없다. 버리기(`onDiscard`)에는 총정리를 넣지 **않는다** — 버린 기록에 "수고하셨습니다"가 나오면 어색하다.
+
+- [ ] **Step 10: 타입 검사와 린트**
 
 Run: `npx tsc --noEmit && npm run lint`
 Expected: 오류 없음
 
-- [ ] **Step 8: 전체 테스트 회귀 확인**
+- [ ] **Step 11: 전체 테스트 회귀 확인**
 
 Run: `npm test`
 Expected: PASS (전부 통과)
 
-- [ ] **Step 9: 커밋**
+- [ ] **Step 12: 커밋**
 
 ```bash
 git add src/hooks/useVoiceCues.ts "app/(tabs)/index.tsx"
-git commit -m "feat(voice): 러닝 화면에 음성 안내 배선"
+git commit -m "feat(voice): 러닝 화면에 음성 안내·카운트다운·총정리 배선"
 ```
 
 ---
@@ -1383,7 +1672,20 @@ npx expo run:ios
 - iOS 무음 스위치를 켜도 안내가 들린다.
 - 종료(저장·버리기) 직후 발화가 남아 이어지지 않는다.
 
-- [ ] **Step 4: 확인 결과 기록**
+- [ ] **Step 4: 카운트다운·총정리 확인**
+
+- 시작을 누르면 "삼 · 이 · 일 · 시작"이 화면 숫자와 같은 박자로 나온다.
+  **첫 숫자("삼")가 씹히지 않는지**를 특히 본다 — 오디오 세션이 늦게 잡히면
+  여기서 티가 난다.
+- 카운트다운 중 화면을 탭해 취소하면 발화가 즉시 끊긴다.
+- 목표 거리를 설정하고 뛴 뒤 저장하면 총정리가 나오고, 마지막에 달성/미달
+  문장이 붙는다. 목표 거리를 지우면 그 문장만 빠진다.
+- 종료 후 **버리기**를 고르면 총정리가 나오지 않는다.
+- 음성 안내를 거리·시간 둘 다 `끔`으로 두면 카운트다운도 총정리도 무음이다.
+- 러닝 도중 설정에서 음성 안내를 처음 켜면, 다음 주기부터 안내가 나오고
+  배경음 더킹도 정상 동작한다.
+
+- [ ] **Step 5: 확인 결과 기록**
 
 실기기에서 어긋난 항목이 있으면 그대로 두지 말고 목록으로 정리해 보고한다. 통과했으면 이 태스크는 커밋 없이 종료한다.
 
@@ -1399,6 +1701,6 @@ npx tsc --noEmit
 npm run lint
 ```
 
-새로 추가되는 자동 테스트: `src/lib/__tests__/voice.test.ts`(포매터·문장·트리거), `src/services/__tests__/speech.test.ts`(발화·오디오 세션), `src/stores/__tests__/settingsStore.test.ts`에 추가된 5개 케이스.
+새로 추가되는 자동 테스트: `src/lib/__tests__/voice.test.ts`(포매터·주기 안내 문장·카운트다운 문장·총정리 문장·트리거 판정), `src/services/__tests__/speech.test.ts`(발화·오디오 세션·음성 안내 켜짐 게이트), `src/stores/__tests__/settingsStore.test.ts`에 추가된 6개 케이스.
 
 컴포넌트(`VoiceGuideSection`)와 훅(`useVoiceCues`)은 이 저장소에 테스트 인프라가 없어 Task 7의 수동 확인으로 검증한다.
