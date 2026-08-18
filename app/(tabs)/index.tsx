@@ -16,14 +16,16 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { GoalDialog } from '@/components/GoalDialog';
+import { CountdownOverlay } from '@/components/CountdownOverlay';
+import { RouteMap, type RouteMapHandle } from '@/components/RouteMap';
+import { cadenceSpm, formatCadence } from '@/lib/cadence';
 import {
-  CountdownOverlay,
   COUNTDOWN_EXIT_MS,
   COUNTDOWN_START,
   COUNTDOWN_TICK_MS,
-} from '@/components/CountdownOverlay';
-import { RouteMap, type RouteMapHandle } from '@/components/RouteMap';
-import { cadenceSpm, formatCadence } from '@/lib/cadence';
+  isCancellable,
+  nextCountdown,
+} from '@/lib/countdown';
 import { formatDistance, formatDuration, formatPace, METERS_PER_MILE, paceSecPerUnit } from '@/lib/geo';
 import { goalDeltaM, goalDeltaStatus, goalSummary } from '@/lib/goal';
 import { cn } from '@/lib/utils';
@@ -87,6 +89,13 @@ export default function HomeScreen() {
   const mapRef = useRef<RouteMapHandle>(null);
   const locatingRef = useRef(false);
   const startingRef = useRef(false);
+  const countdownRef = useRef<number | null>(null);
+
+  // 가드는 커밋 전에도 참인 ref를 읽는다 — setCountdown만으로는 같은 틱에 도착한 탭이 옛 값을 본다
+  const applyCountdown = (v: number | null) => {
+    countdownRef.current = v;
+    setCountdown(v);
+  };
 
   // fromButton: 버튼 탭이면 거부 시 설정 안내를 띄운다 (마운트 시에는 조용히 무시)
   const goToMyLocation = async (fromButton: boolean) => {
@@ -178,7 +187,7 @@ export default function HomeScreen() {
   // 추적을 먼저 켜두면 3초간 GPS가 워밍업되고, 권한 팝업·실패 다이얼로그가 카운트다운을 깨지 않는다.
   // 이 구간에 도착한 좌표는 addPoint의 status 가드가 버리고, 뒤이은 start()가 points를 비운다.
   const onStart = async () => {
-    if (startingRef.current || countdown !== null) return;
+    if (startingRef.current || countdownRef.current !== null) return;
     startingRef.current = true;
     try {
       const granted = await requestPermissions();
@@ -196,7 +205,7 @@ export default function HomeScreen() {
         });
         return;
       }
-      setCountdown(COUNTDOWN_START);
+      applyCountdown(COUNTDOWN_START);
     } finally {
       startingRef.current = false;
     }
@@ -204,9 +213,9 @@ export default function HomeScreen() {
 
   // 카운트다운 취소 — start()를 아직 안 불렀으므로 켜둔 GPS만 되돌리면 된다.
   const onCancelCountdown = () => {
-    if (countdown === null || countdown === 0) return;
-    setCountdown(null);
-    stopTracking().catch(() => {});
+    if (!isCancellable(countdownRef.current)) return;
+    applyCountdown(null);
+    stopTracking().catch((e) => console.warn('추적 중지 실패', e));
   };
 
   // 카운트다운 틱. 0에 닿는 순간 러닝을 시작하고, COUNTDOWN_EXIT_MS 뒤 오버레이를 걷는다.
@@ -214,13 +223,14 @@ export default function HomeScreen() {
   useEffect(() => {
     if (countdown === null) return;
     if (countdown === 0) {
-      const t = setTimeout(() => setCountdown(null), COUNTDOWN_EXIT_MS);
+      const t = setTimeout(() => applyCountdown(null), COUNTDOWN_EXIT_MS);
       return () => clearTimeout(t);
     }
     const t = setTimeout(() => {
-      const next = countdown - 1;
-      setCountdown(next);
-      if (next === 0) void beginRun();
+      const next = nextCountdown(countdown);
+      // beginRun()보다 먼저 커밋 — 늦게 도착한 취소 탭이 0을 보고 물러난다
+      applyCountdown(next);
+      if (next === 0) beginRun().catch(() => {});
     }, COUNTDOWN_TICK_MS);
     return () => clearTimeout(t);
   }, [countdown]);
@@ -246,7 +256,7 @@ export default function HomeScreen() {
     setDialog(null);
     stopStepCounting();
     useRunStore.getState().reset();
-    stopTracking().catch(() => {});
+    stopTracking().catch((e) => console.warn('추적 중지 실패', e));
   };
 
   const onStop = async () => {
