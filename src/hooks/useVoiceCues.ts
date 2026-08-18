@@ -48,6 +48,11 @@ export function useVoiceCues(p: {
     if (startedAt !== runIdRef.current) {
       runIdRef.current = startedAt;
       cueStateRef.current = INITIAL_VOICE_CUE_STATE;
+      // 러닝 경계를 방금 다시 세운 틱이다. 여기서 곧장 nextVoiceCue로 넘어가면
+      // 화면이 러닝 도중 다시 마운트되는 경우(오늘은 없지만 unmountOnBlur 하나 차이) 리셋된
+      // {0,0} 기준점 대비 현재 distanceM·elapsedMs가 한꺼번에 마일스톤을 넘어 즉시 안내가
+      // 터진다. 기준점만 다시 잡고, 이번 틱은 평가하지 않고 조용히 넘어간다.
+      return;
     }
     // 일시정지 중에는 두 값이 얼어 있어 어차피 마일스톤이 오르지 않지만,
     // 명시적으로 막아 saving 구간까지 함께 조용해진다.

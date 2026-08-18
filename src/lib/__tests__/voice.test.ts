@@ -21,8 +21,8 @@ describe('speakNumber', () => {
 
   test('소수점 셋째 자리에서 반올림한다', () => {
     expect(speakNumber(5.199)).toBe('5.2');
-    // 12.345처럼 정확히 반올림 경계에 놓인 값은 부동소수점 표현 때문에
-    // toFixed 결과가 직관과 어긋난다. 경계를 피한 값으로 검증한다.
+    // 1.005처럼 정확히 반올림 경계에 놓인 값은 부동소수점 표현 때문에
+    // toFixed 결과가 직관과 어긋난다((1.005).toFixed(2) === '1.00'). 경계를 피한 값으로 검증한다.
     expect(speakNumber(12.344)).toBe('12.34');
     expect(speakNumber(12.346)).toBe('12.35');
   });
@@ -186,6 +186,12 @@ describe('voiceSummaryText', () => {
     );
   });
 
+  test('페이스가 null이면 측정 중으로 읽는다', () => {
+    expect(
+      voiceSummaryText({ ...base, paceSecPerUnit: null, goalDistanceUnits: null }),
+    ).toBe('수고하셨습니다. 총 35분 12초, 5.2킬로미터. 평균 페이스 측정 중.');
+  });
+
   test('목표 거리를 달성하면 달성 문장이 붙는다', () => {
     expect(voiceSummaryText({ ...base, goalDistanceUnits: 5 })).toBe(
       '수고하셨습니다. 총 35분 12초, 5.2킬로미터. 평균 페이스 킬로미터당 6분 45초. 목표 5킬로미터를 달성했습니다.',
@@ -251,6 +257,13 @@ describe('nextVoiceCue', () => {
 
   test('시간 마일스톤에 닿으면 time', () => {
     const r = nextVoiceCue({ ...base, distanceUnits: null, distanceM: 0, elapsedMs: 60_000 });
+    expect(r.cue).toBe('time');
+  });
+
+  test('두 축이 모두 켜져 있어도 거리만 못 미쳤으면 시간 분기로 흘러가 time을 낸다', () => {
+    // distance 분기가 조건 불충족 시 그냥 null을 반환해버리면(시간 분기로 흘러가지 않으면)
+    // 두 축을 모두 켠 가장 흔한 설정에서 시간 안내가 통째로 죽는다 — 이 회귀를 지킨다.
+    const r = nextVoiceCue({ ...base, distanceM: 500, elapsedMs: 60_000 });
     expect(r.cue).toBe('time');
   });
 

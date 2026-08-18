@@ -67,9 +67,12 @@ describe('settingsStore', () => {
     expect(useSettingsStore.getState().theme).toBe('system');
   });
 
+  // getState()는 beforeEach의 setState가 심어둔 값을 그대로 돌려주므로 이니셜라이저를
+  // 지워도 통과한다. getInitialState()는 스토어 생성 시 고정된 초기 상태라 실제로
+  // src/stores/settingsStore.ts의 두 필드 초기값을 검증한다.
   test('음성 안내 주기의 기본값은 둘 다 null(끔)이다', () => {
-    expect(useSettingsStore.getState().voiceDistanceUnits).toBeNull();
-    expect(useSettingsStore.getState().voiceTimeMin).toBeNull();
+    expect(useSettingsStore.getInitialState().voiceDistanceUnits).toBeNull();
+    expect(useSettingsStore.getInitialState().voiceTimeMin).toBeNull();
   });
 
   test('음성 안내 주기를 변경한다', () => {

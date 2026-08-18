@@ -27,8 +27,11 @@ beforeEach(() => {
   mockSetAudioMode.mockResolvedValue(undefined);
   Platform.OS = 'ios';
   // 두 모듈을 같은 resetModules 뒤에 require 해야 speech.ts가 보는 스토어와
-  // 테스트가 조작하는 스토어가 같은 인스턴스가 된다.
+  // 테스트가 조작하는 스토어가 같은 인스턴스가 된다. import가 아닌 require가 필요한
+  // 의도된 패턴이라 경고를 계속 낼 이유가 없다 — 다음 두 줄만 좁게 끈다.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   speech = require('../speech');
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   settings = require('../../stores/settingsStore');
 });
 
@@ -38,7 +41,10 @@ describe('speakCue', () => {
 
     expect(mockSpeak).toHaveBeenCalledTimes(1);
     expect(mockSpeak.mock.calls[0][0]).toBe('5킬로미터');
-    expect(mockSpeak.mock.calls[0][1]).toMatchObject({ language: 'ko-KR' });
+    expect(mockSpeak.mock.calls[0][1]).toMatchObject({
+      language: 'ko-KR',
+      useApplicationAudioSession: true,
+    });
   });
 
   it('발화 전에 stop을 불러 밀린 안내를 버린다', () => {
