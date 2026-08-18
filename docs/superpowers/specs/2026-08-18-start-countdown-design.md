@@ -82,10 +82,15 @@ type Props = { tick: number | null; onCancel: () => void };
 - `tick === null`이면 `null`을 반환한다.
 - 컨테이너: `absolute inset-0 items-center justify-center bg-black/70`.
   `HomeScreen` 루트 `View`의 마지막 자식으로 렌더해 지도·카드 위에 온다.
-- 숫자: Reanimated `Animated.Text`에 `key={tick}` + `entering={ZoomIn.duration(200)}`.
-  틱마다 새 노드가 마운트되어 전환이 생긴다. `text-white font-bold`, `fontSize: 140`.
+- 숫자: `NativeOnlyAnimatedView`(기존 UI 컴포넌트)에 `key={tick}` +
+  `entering={ZoomIn.duration(200)}`, 그 안에 `Text`. 틱마다 새 노드가 마운트되어
+  전환이 생긴다. `text-white font-bold`, `fontSize: 140`.
 - `tick === 0`: 텍스트를 `시작!`(`fontSize: 72`)로 바꾸고 컨테이너에
-  `exiting={FadeOut}`, `pointerEvents="none"`을 준다.
+  `pointerEvents="none"`을 준다. 페이드아웃은 `exiting` 레이아웃 애니메이션이 아니라
+  `useSharedValue` + `withTiming(0, { duration: COUNTDOWN_EXIT_MS })`로 건다 —
+  언마운트 타이밍과 무관하게 0.5초가 정확히 지켜진다.
+- 딤·정렬은 안쪽 `View`의 `className`에 두고 `Animated.View`에는 `style`만 준다.
+  NativeWind `className`을 Reanimated 컴포넌트에 직접 걸지 않기 위함이다.
 - 취소: `tick > 0`일 때만 화면을 덮는 `Pressable`이 `onCancel`을 호출한다.
 - 접근성: 컨테이너에 `accessibilityLiveRegion="assertive"`, 취소 `Pressable`에
   `accessibilityRole="button"`과 `accessibilityLabel="카운트다운 취소"`.
