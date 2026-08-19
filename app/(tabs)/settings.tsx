@@ -1,4 +1,4 @@
-import { View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 
 import { AccountSection } from '@/components/AccountSection';
 import { AppInfoSection } from '@/components/AppInfoSection';
@@ -14,7 +14,7 @@ export default function SettingsScreen() {
   const setTheme = useSettingsStore((s) => s.setTheme);
 
   return (
-    <View className="flex-1 gap-6 bg-background p-4">
+    <ScrollView className="flex-1 bg-background" contentContainerClassName="gap-6 p-4">
       <AccountSection />
       <View className="gap-3">
         <Text className="text-base font-semibold">거리 단위</Text>
@@ -57,6 +57,6 @@ export default function SettingsScreen() {
       </View>
       <VoiceGuideSection />
       <AppInfoSection />
-    </View>
+    </ScrollView>
   );
 }

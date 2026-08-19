@@ -21,6 +21,35 @@ npx expo run:ios --device --configuration Release
 - **백그라운드 위치 추적은 dev build 필요**: `eas build --profile development --platform ios` (또는 android) 후 설치.
 - Android에서 지도를 보려면 Google Maps API 키가 필요 (`app.json` → `android.config.googleMaps.apiKey`).
 
+## 실기기 빌드 문제 해결
+
+### `No profiles for 'com.ninestring.runningapp' were found` (error 65)
+
+무료 Apple 계정이라 프로비저닝 프로필이 7일마다 만료되고, 만료되면 디스크에서 사라진다
+(`~/Library/Developer/Xcode/UserData/Provisioning Profiles`가 빈 상태인지로 확인).
+
+`npx expo run:ios --device`로는 재발급이 안 된다. expo CLI는 pbxproj에 `DEVELOPMENT_TEAM`이
+이미 설정돼 있으면 코드사이닝 설정 단계를 건너뛰면서 `-allowProvisioningUpdates`도 같이 빼기
+때문이다. 프로필이 있을 때만 통하는 경로다.
+
+xcodebuild를 직접 불러 재발급받는다 (`id=`는 `xcrun devicectl list devices`로 확인):
+
+```bash
+xcodebuild -workspace ios/runningapp.xcworkspace -scheme runningapp \
+  -configuration Release -destination "id=<DEVICE_UDID>" \
+  -allowProvisioningUpdates -allowProvisioningDeviceRegistration \
+  DEVELOPMENT_TEAM=R7NARLC828 build
+```
+
+한 번 성공하면 프로필이 다시 생기므로 이후 7일간은 `npx expo run:ios --device`가 정상 동작한다.
+
+### Release 빌드 후 시뮬레이터가 즉시 죽을 때
+
+React Native·Expo 프리빌트 바이너리는 Debug/Release 변종이 따로 있다. Release 빌드를 한 뒤
+Debug 빌드를 하면 정렬이 깨져 링크 에러나 실행 즉시 `EXC_BAD_ACCESS`가 난다. 마커 파일
+(`.last_build_configuration`)은 실제 바이너리와 어긋날 수 있으니 믿지 말고, 설치된 바이너리
+크기를 `ios/Pods/*/artifacts/*-debug.tar.gz` 안의 크기와 대조해 판단한다.
+
 ## Supabase 연결
 
 1. [supabase.com](https://supabase.com)에서 프로젝트 생성
