@@ -58,6 +58,11 @@
 `formatElevationDelta`, `ProfilePoint`. `computeSplits`는 `elevation.ts`에서
 `smoothAltitudes`를 import한다(단방향, 순환 없음).
 
+`splits.ts`에 재export를 남기지 않는다. 옮긴 심볼을 쓰는 모든 호출부의 import
+경로를 `@/lib/elevation`으로 갱신한다(`src/components/SplitsList.tsx`,
+`src/components/ElevationChart.tsx`, `src/components/ElevationChart.web.tsx`,
+`app/run/[id].tsx`, 관련 테스트). 이동 후 `grep`으로 잔여 참조가 없는지 확인한다.
+
 `smoothAltitudes(points: RoutePoint[]): (number | null)[]` 내부를 2단계로 바꾼다.
 
 **1단계 — 중앙값 필터(윈도우 5, 중심 ±2)**
@@ -82,7 +87,8 @@
 
 ## 설계 2 — 총 상승고도 히스테리시스
 
-`elevationGainM`의 합산 규칙을 임계값 3m 히스테리시스로 바꾼다.
+`elevationGainM`의 합산 규칙을 임계값 3m 히스테리시스로 바꾼다. 입력 `alts`는
+현재와 동일하게 `smoothAltitudes` 결과에서 `null`을 제거한 배열이다.
 
 ```
 ref = alts[0]
