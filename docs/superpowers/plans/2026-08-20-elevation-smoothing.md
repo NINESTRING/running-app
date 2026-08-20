@@ -99,8 +99,9 @@ describe('smoothAltitudes', () => {
     // 2km에 50m 상승. 양 끝은 중심 이동평균 감쇠로 1m 이내 오차
     const points = line(286, 7, (i, n) => (i * 50) / (n - 1));
     const smoothed = smoothAltitudes(points);
-    expect(smoothed[0]).toBeCloseTo(0, 0);
-    expect(smoothed[285]).toBeCloseTo(50, 0);
+    // 실측 0.647 / 49.353 — 중심 이동평균의 양 끝 감쇠는 구조적이라 1m 이내로 본다
+    expect(smoothed[0]).toBeLessThan(1);
+    expect(smoothed[285]).toBeGreaterThan(49);
   });
 
   it('null 고도는 null 유지, 이웃 평균에서는 제외한다', () => {
@@ -164,7 +165,8 @@ function medianAt(alts: (number | null)[], i: number): number | null {
  */
 export function smoothAltitudes(points: RoutePoint[]): (number | null)[] {
   const raw = points.map((p) => p.altitude);
-  const median = raw.map((_, i) => medianAt(raw, i));
+  // 입력이 null인 포인트는 null 유지 — medianAt은 이웃만 보므로 여기서 걸러야 한다
+  const median = raw.map((a, i) => (a === null ? null : medianAt(raw, i)));
 
   // 누적 거리는 단조 증가 — two-pointer로 윈도우를 밀며 부분합을 갱신해 O(n)
   const cum = new Array<number>(points.length);
