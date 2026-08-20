@@ -36,7 +36,8 @@ function medianAt(alts: (number | null)[], i: number): number | null {
  */
 export function smoothAltitudes(points: RoutePoint[]): (number | null)[] {
   const raw = points.map((p) => p.altitude);
-  const median = raw.map((_, i) => medianAt(raw, i));
+  // 입력이 null인 포인트는 null 유지 — medianAt은 이웃만 보므로 여기서 걸러야 한다
+  const median = raw.map((a, i) => (a === null ? null : medianAt(raw, i)));
 
   // 누적 거리는 단조 증가 — two-pointer로 윈도우를 밀며 부분합을 갱신해 O(n)
   const cum = new Array<number>(points.length);
@@ -66,7 +67,7 @@ export function smoothAltitudes(points: RoutePoint[]): (number | null)[] {
       }
       lo++;
     }
-    out[i] = raw[i] === null ? null : (median[i] === null || count === 0 ? null : sum / count);
+    out[i] = median[i] === null || count === 0 ? null : sum / count;
   }
   return out;
 }
