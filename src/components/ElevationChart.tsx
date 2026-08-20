@@ -1,5 +1,5 @@
 import { CartesianChart, Line } from 'victory-native';
-import type { ProfilePoint } from '@/lib/elevation';
+import { elevationYDomain, type ProfilePoint } from '@/lib/elevation';
 
 interface Props {
   profile: ProfilePoint[];
@@ -12,8 +12,15 @@ export function ElevationChart({ profile }: Props) {
     distance: p.distanceM,
     altitude: p.altitudeM,
   }));
+  // y축에 최소 표시범위를 주지 않으면 평지의 잔여 노이즈가 차트를 가득 채운다
+  const [yMin, yMax] = elevationYDomain(profile);
   return (
-    <CartesianChart data={data} xKey="distance" yKeys={['altitude']}>
+    <CartesianChart
+      data={data}
+      xKey="distance"
+      yKeys={['altitude']}
+      domain={{ y: [yMin, yMax] }}
+    >
       {({ points }) => (
         <Line points={points.altitude} color="#3b82f6" strokeWidth={2} />
       )}

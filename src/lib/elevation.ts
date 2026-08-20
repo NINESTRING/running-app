@@ -134,3 +134,34 @@ export function formatElevationDelta(deltaM: number | null): string {
   const r = Math.round(deltaM);
   return r > 0 ? `+${r} m` : `${r} m`; // String(-0) === '0'이라 -0도 '0 m'
 }
+
+/**
+ * 고도 차트 y축 기본 최소 표시범위(m).
+ * 스무딩 후에도 저주파 드리프트가 남으므로(평지 2km에서 약 8.6m) 최소 폭 없이
+ * min/max에 맞추면 평지도 차트 높이를 가득 채워 큰 기복처럼 보인다. 40m면
+ * 그 잔여 진폭이 높이의 약 21%로 완만한 물결이 되고, 실제 지형은 손실이 없다.
+ */
+const DEFAULT_MIN_SPAN_M = 40;
+
+/**
+ * 고도 차트 y 도메인 [min, max]. 프로필 고도 범위가 minSpanM 미만이면
+ * 중앙값을 중심으로 minSpanM 폭까지 넓힌다. 그 이상이면 실제 min/max.
+ * native/web 차트가 같은 규칙을 쓰도록 공용으로 둔다.
+ */
+export function elevationYDomain(
+  profile: ProfilePoint[],
+  minSpanM: number = DEFAULT_MIN_SPAN_M
+): [number, number] {
+  if (profile.length === 0) return [0, minSpanM];
+  let lo = Infinity;
+  let hi = -Infinity;
+  for (const p of profile) {
+    if (p.altitudeM < lo) lo = p.altitudeM;
+    if (p.altitudeM > hi) hi = p.altitudeM;
+  }
+  if (hi - lo < minSpanM) {
+    const center = (lo + hi) / 2;
+    return [center - minSpanM / 2, center + minSpanM / 2];
+  }
+  return [lo, hi];
+}

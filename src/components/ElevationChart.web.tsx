@@ -1,6 +1,6 @@
 import { View } from 'react-native';
 import Svg, { Polyline } from 'react-native-svg';
-import type { ProfilePoint } from '@/lib/elevation';
+import { elevationYDomain, type ProfilePoint } from '@/lib/elevation';
 
 interface Props {
   profile: ProfilePoint[];
@@ -11,9 +11,9 @@ interface Props {
 export function ElevationChart({ profile }: Props) {
   if (profile.length < 2) return null;
   const maxD = profile[profile.length - 1].distanceM || 1;
-  const alts = profile.map((p) => p.altitudeM);
-  const minA = Math.min(...alts);
-  const range = Math.max(...alts) - minA || 1;
+  // native 차트와 같은 y 도메인 규칙 — 최소 표시범위를 보장한다
+  const [minA, maxA] = elevationYDomain(profile);
+  const range = maxA - minA || 1;
   const points = profile
     .map(
       (p) =>

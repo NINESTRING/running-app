@@ -2,6 +2,7 @@ import type { RoutePoint } from '../../types/run';
 import {
   elevationGainM,
   elevationProfile,
+  elevationYDomain,
   formatElevationDelta,
   smoothAltitudes,
 } from '../elevation';
@@ -192,5 +193,52 @@ describe('formatElevationDelta', () => {
 
   it('null은 대시', () => {
     expect(formatElevationDelta(null)).toBe('—');
+  });
+});
+
+describe('elevationYDomain', () => {
+  it('범위가 최소 폭보다 좁으면 중앙값 기준으로 넓힌다', () => {
+    const profile = [
+      { distanceM: 0, altitudeM: 99.5 },
+      { distanceM: 10, altitudeM: 100.5 },
+    ];
+    expect(elevationYDomain(profile)).toEqual([80, 120]);
+  });
+
+  it('실제 언덕은 min/max를 그대로 쓴다', () => {
+    const profile = [
+      { distanceM: 0, altitudeM: 20 },
+      { distanceM: 10, altitudeM: 100 },
+    ];
+    expect(elevationYDomain(profile)).toEqual([20, 100]);
+  });
+
+  it('경계: 범위가 최소 폭과 정확히 같으면 그대로 쓴다', () => {
+    const profile = [
+      { distanceM: 0, altitudeM: 100 },
+      { distanceM: 10, altitudeM: 140 },
+    ];
+    expect(elevationYDomain(profile)).toEqual([100, 140]);
+  });
+
+  it('minSpanM을 지정할 수 있다', () => {
+    const profile = [
+      { distanceM: 0, altitudeM: 100 },
+      { distanceM: 10, altitudeM: 101 },
+    ];
+    expect(elevationYDomain(profile, 10)).toEqual([95.5, 105.5]);
+  });
+
+  it('빈 프로필은 [0, minSpanM]', () => {
+    expect(elevationYDomain([])).toEqual([0, 40]);
+  });
+
+  it('평지 드리프트 코스는 잔여 진폭이 차트 높이의 30% 미만이 된다', () => {
+    // 이 최소 폭을 두는 이유 — 스무딩만으로는 드리프트가 남아 그래프를 가득 채운다
+    const profile = elevationProfile([line(286, 7, (i) => 100 + drift(i))]);
+    const [lo, hi] = elevationYDomain(profile);
+    const alts = profile.map((p) => p.altitudeM);
+    const residual = Math.max(...alts) - Math.min(...alts);
+    expect(residual / (hi - lo)).toBeLessThan(0.3);
   });
 });
