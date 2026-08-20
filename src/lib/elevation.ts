@@ -71,3 +71,66 @@ export function smoothAltitudes(points: RoutePoint[]): (number | null)[] {
   }
   return out;
 }
+
+/**
+ * 총 상승고도 히스테리시스 임계값.
+ * 스무딩 후에도 남는 저주파 드리프트 진폭(약 ±4m)을 넘어야 드리프트가 상승으로
+ * 계상되지 않는다. 실측: 임계값 3m에서 평지 2km가 15.2m, 5m에서 0m.
+ */
+const GAIN_THRESHOLD_M = 5;
+
+/**
+ * 총 상승고도. 기준점에서 GAIN_THRESHOLD_M 이상 올라간 분만 합산하고,
+ * 그만큼 내려가면 상승분 없이 기준점만 옮긴다. 평지 노이즈는 임계값을 넘지
+ * 못해 0으로 유지되고, 완만한 실제 언덕은 상승분이 계속 누적된다.
+ *
+ * 유효 고도가 2개 미만이면 null.
+ *
+ * 한계: 완만한 실제 상승은 약 8%, 롤링힐은 약 25% 과소 계상된다. 기압계나 DEM
+ * 없이 고도 시계열만으로는 드리프트와 완만한 언덕을 구분할 수 없어, 과대 계상을
+ * 없애는 대가로 받아들인 손실이다.
+ */
+export function elevationGainM(groups: RoutePoint[][]): number | null {
+  const alts = smoothAltitudes(groups.flat()).filter(
+    (a): a is number => a !== null
+  );
+  if (alts.length < 2) return null;
+  let gain = 0;
+  let ref = alts[0];
+  for (let i = 1; i < alts.length; i++) {
+    const a = alts[i];
+    if (a - ref > GAIN_THRESHOLD_M) {
+      gain += a - ref;
+      ref = a;
+    } else if (ref - a > GAIN_THRESHOLD_M) {
+      ref = a;
+    }
+  }
+  return gain;
+}
+
+export interface ProfilePoint {
+  distanceM: number;
+  altitudeM: number;
+}
+
+/** 고도 그래프용 누적 거리 × 스무딩 고도 시리즈. 고도 null 포인트는 제외(거리는 누적). */
+export function elevationProfile(groups: RoutePoint[][]): ProfilePoint[] {
+  const flat = groups.flat();
+  const smoothed = smoothAltitudes(flat);
+  const out: ProfilePoint[] = [];
+  let dist = 0;
+  for (let i = 0; i < flat.length; i++) {
+    if (i > 0) dist += haversineM(flat[i - 1], flat[i]);
+    const a = smoothed[i];
+    if (a !== null) out.push({ distanceM: dist, altitudeM: a });
+  }
+  return out;
+}
+
+/** 구간 고도 변화 표기: 상승 +N m, 하강 -N m, 0은 무부호, null은 — */
+export function formatElevationDelta(deltaM: number | null): string {
+  if (deltaM === null) return '—';
+  const r = Math.round(deltaM);
+  return r > 0 ? `+${r} m` : `${r} m`; // String(-0) === '0'이라 -0도 '0 m'
+}

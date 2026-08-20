@@ -1,5 +1,10 @@
 import type { RoutePoint } from '../../types/run';
-import { smoothAltitudes } from '../elevation';
+import {
+  elevationGainM,
+  elevationProfile,
+  formatElevationDelta,
+  smoothAltitudes,
+} from '../elevation';
 
 // 위도 1도 ≈ 111195m. 포인트 간격을 미터로 지정하기 위한 환산 계수
 const M_TO_DEG = 1 / 111195;
@@ -74,5 +79,118 @@ describe('smoothAltitudes', () => {
 
   it('빈 배열은 빈 배열', () => {
     expect(smoothAltitudes([])).toEqual([]);
+  });
+});
+
+// 위도 0.001도 ≈ 111.195m (적도, 경도 0 고정)
+const STEP_M = 111.195;
+
+/** 저주파 드리프트 노이즈 — 실제 GPS 고도 오차처럼 수백 m 주기로 천천히 흐른다 */
+const drift = (i: number): number =>
+  3 * Math.sin(i * 0.07) + 2 * Math.sin(i * 0.23 + 1) + 2.5 * Math.sin(i * 0.011);
+
+describe('elevationGainM', () => {
+  it('평지의 저주파 드리프트 노이즈는 상승으로 계상하지 않는다', () => {
+    // 이 케이스가 이 기능의 존재 이유다. 임계값 3m에서는 15.2m가 나왔다.
+    const points = line(286, 7, (i) => 100 + drift(i));
+    expect(elevationGainM([points])).toBe(0);
+  });
+
+  it('평지의 톱니 노이즈도 상승으로 계상하지 않는다', () => {
+    const points = line(200, 7, (i) => 100 + (i % 2 ? 5 : -5));
+    expect(elevationGainM([points])).toBe(0);
+  });
+
+  it('완만한 실제 상승은 보존한다', () => {
+    // 2km에 50m. 히스테리시스 임계값 미달분과 이동평균 양 끝 감쇠로 약 8% 손실
+    const points = line(286, 7, (i, n) => (i * 50) / (n - 1));
+    const gain = elevationGainM([points]);
+    expect(gain).toBeGreaterThan(45);
+    expect(gain).toBeLessThanOrEqual(50);
+  });
+
+  it('임계값을 넘는 상승만 합산한다', () => {
+    // 111m 간격이라 이동평균은 무연산. 스무딩 후 [2,3,4,6,8,10,12,14,15,16]
+    // 기준점 2 → 8(+6) → 14(+6). 나머지는 임계값 5m 미달 → 12
+    const points = Array.from({ length: 10 }, (_, i) => pt(i * 0.001, i * 10_000, i * 2));
+    expect(elevationGainM([points])).toBeCloseTo(12);
+  });
+
+  it('내리막은 합산하지 않는다', () => {
+    const alts = [10, 10, 10, 0, 0, 0];
+    const points = alts.map((a, i) => pt(i * 0.001, i * 10_000, a));
+    expect(elevationGainM([points])).toBe(0);
+  });
+
+  it('상승 후 같은 높이로 하강하면 상승분만 계상한다', () => {
+    // 1km에 30m 오르고 1km에 30m 내려온다. 총 이동 고도차는 60m지만 상승은 30m
+    const up = line(143, 7, (i) => (i * 30) / 142);
+    const down = line(143, 7, (i) => 30 - (i * 30) / 142).map((p, i) => ({
+      ...p,
+      latitude: (143 + i) * 7 * M_TO_DEG,
+      timestamp: (143 + i) * 3000,
+    }));
+    const gain = elevationGainM([[...up, ...down]]);
+    expect(gain).toBeGreaterThan(24); // 실측 25.418
+    expect(gain).toBeLessThanOrEqual(30);
+  });
+
+  it('유효 고도가 2개 미만이면 null', () => {
+    expect(elevationGainM([[pt(0, 0), pt(0.001, 1000)]])).toBeNull();
+    expect(elevationGainM([])).toBeNull();
+  });
+
+  it('일시정지로 나뉜 다중 그룹도 이어서 합산한다', () => {
+    // 그룹 경계를 가로질러 단조 증가: flat [0,10,20,20,30,40]
+    // 스무딩 후 [10,15,20,20,25,30] → 기준점 10 → 20(+10) → 30(+10) = 20
+    const g1 = [pt(0, 0, 0), pt(0.001, 10_000, 10), pt(0.002, 20_000, 20)];
+    const g2 = [pt(0.002, 120_000, 20), pt(0.003, 130_000, 30), pt(0.004, 140_000, 40)];
+    expect(elevationGainM([g1, g2])).toBeCloseTo(20);
+  });
+});
+
+describe('elevationProfile', () => {
+  it('누적 거리 × 스무딩 고도 시리즈를 만든다', () => {
+    const points = [pt(0, 0, 10), pt(0.001, 1000, 20), pt(0.002, 2000, 30)];
+    const profile = elevationProfile([points]);
+    expect(profile).toHaveLength(3);
+    expect(profile[0].distanceM).toBe(0);
+    expect(profile[1].distanceM).toBeCloseTo(STEP_M, 0);
+    expect(profile[2].distanceM).toBeCloseTo(2 * STEP_M, 0);
+    expect(profile[1].altitudeM).toBeCloseTo(20);
+  });
+
+  it('고도 null 포인트는 제외하되 거리는 누적한다', () => {
+    const points = [pt(0, 0, 10), pt(0.001, 1000, null), pt(0.002, 2000, 10)];
+    const profile = elevationProfile([points]);
+    expect(profile).toHaveLength(2);
+    expect(profile[1].distanceM).toBeCloseTo(2 * STEP_M, 0);
+  });
+
+  it('일시정지로 나뉜 다중 그룹에서도 거리를 이어서 누적한다', () => {
+    const g1 = [pt(0, 0, 10), pt(0.001, 10_000, 10)];
+    const g2 = [pt(0.001, 120_000, 10), pt(0.002, 130_000, 10)];
+    const profile = elevationProfile([g1, g2]);
+    expect(profile).toHaveLength(4);
+    expect(profile[3].distanceM).toBeCloseTo(2 * STEP_M, 0);
+  });
+});
+
+describe('formatElevationDelta', () => {
+  it('상승은 + 부호를 붙인다', () => {
+    expect(formatElevationDelta(4.4)).toBe('+4 m');
+  });
+
+  it('하강은 - 부호를 붙인다', () => {
+    expect(formatElevationDelta(-5.3)).toBe('-5 m');
+  });
+
+  it('0으로 반올림되면 무부호', () => {
+    expect(formatElevationDelta(0.2)).toBe('0 m');
+    expect(formatElevationDelta(-0.4)).toBe('0 m');
+  });
+
+  it('null은 대시', () => {
+    expect(formatElevationDelta(null)).toBe('—');
   });
 });

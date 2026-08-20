@@ -1,13 +1,9 @@
 import type { RoutePoint } from '../../types/run';
 import {
   computeSplits,
-  elevationGainM,
-  elevationProfile,
-  formatElevationDelta,
   liveExtraSec,
   liveSplitPaceSec,
   partitionPoints,
-  smoothAltitudes,
   splitDistanceFor,
   splitPaceSec,
 } from '../splits';
@@ -53,26 +49,6 @@ describe('partitionPoints', () => {
 
   it('포인트가 없으면 빈 배열', () => {
     expect(partitionPoints([], segments)).toEqual([]);
-  });
-});
-
-describe('smoothAltitudes', () => {
-  it('윈도우 5(±2) 이동평균을 적용한다', () => {
-    const points = [10, 20, 30, 40, 50].map((a, i) => pt(0, i * 1000, a));
-    const smoothed = smoothAltitudes(points);
-    expect(smoothed[0]).toBeCloseTo(20); // (10+20+30)/3
-    expect(smoothed[2]).toBeCloseTo(30); // (10+20+30+40+50)/5
-    expect(smoothed[4]).toBeCloseTo(40); // (30+40+50)/3
-  });
-
-  it('null 고도는 null 유지, 이웃 평균에서는 제외한다', () => {
-    const points = [pt(0, 0, 10), pt(0, 1000, null), pt(0, 2000, 20)];
-    expect(smoothAltitudes(points)).toEqual([15, null, 15]);
-  });
-
-  it('전부 null이면 전부 null', () => {
-    const points = [pt(0, 0), pt(0, 1000)];
-    expect(smoothAltitudes(points)).toEqual([null, null]);
   });
 });
 
@@ -217,77 +193,3 @@ describe('liveExtraSec', () => {
   });
 });
 
-describe('formatElevationDelta', () => {
-  it('상승은 + 부호를 붙인다', () => {
-    expect(formatElevationDelta(4.4)).toBe('+4 m');
-  });
-
-  it('하강은 - 부호 그대로', () => {
-    expect(formatElevationDelta(-5.3)).toBe('-5 m');
-  });
-
-  it('반올림해 0이면 부호 없이 0 m', () => {
-    expect(formatElevationDelta(0.2)).toBe('0 m');
-    expect(formatElevationDelta(-0.4)).toBe('0 m');
-  });
-
-  it('null이면 —', () => {
-    expect(formatElevationDelta(null)).toBe('—');
-  });
-});
-
-describe('elevationGainM', () => {
-  it('스무딩 후 양의 변화만 합산한다', () => {
-    // 단조 증가 0..18m: 스무딩 경계 효과로 총합은 양 끝 평균 차이
-    const points = Array.from({ length: 10 }, (_, i) => pt(i * 0.001, i * 10_000, i * 2));
-    // smoothed[0] = (0+2+4)/3 = 2, smoothed[9] = (14+16+18)/3 = 16 → gain 14
-    expect(elevationGainM([points])).toBeCloseTo(14);
-  });
-
-  it('내리막은 합산하지 않는다', () => {
-    const alts = [10, 10, 10, 0, 0, 0]; // 스무딩 후에도 순증가 없음
-    const points = alts.map((a, i) => pt(i * 0.001, i * 10_000, a));
-    expect(elevationGainM([points])).toBe(0);
-  });
-
-  it('유효 고도가 2개 미만이면 null', () => {
-    expect(elevationGainM([[pt(0, 0), pt(0.001, 1000)]])).toBeNull();
-    expect(elevationGainM([])).toBeNull();
-  });
-
-  it('일시정지로 나뉜 다중 그룹도 이어서 합산한다', () => {
-    // 그룹 경계를 가로질러 단조 증가: flat [0,2,4,4,6,8]
-    const g1 = [pt(0, 0, 0), pt(0.001, 10_000, 2), pt(0.002, 20_000, 4)];
-    const g2 = [pt(0.002, 120_000, 4), pt(0.003, 130_000, 6), pt(0.004, 140_000, 8)];
-    // 스무딩 후에도 단조 증가 → gain = smoothed 끝(6) − 처음(2) = 4
-    expect(elevationGainM([g1, g2])).toBeCloseTo(4);
-  });
-});
-
-describe('elevationProfile', () => {
-  it('누적 거리 × 스무딩 고도 시리즈를 만든다', () => {
-    const points = [pt(0, 0, 10), pt(0.001, 1000, 20), pt(0.002, 2000, 30)];
-    const profile = elevationProfile([points]);
-    expect(profile).toHaveLength(3);
-    expect(profile[0].distanceM).toBe(0);
-    expect(profile[1].distanceM).toBeCloseTo(STEP_M, 0);
-    expect(profile[2].distanceM).toBeCloseTo(2 * STEP_M, 0);
-    expect(profile[1].altitudeM).toBeCloseTo(20); // (10+20+30)/3
-  });
-
-  it('고도 null 포인트는 제외하되 거리는 누적한다', () => {
-    const points = [pt(0, 0, 10), pt(0.001, 1000, null), pt(0.002, 2000, 10)];
-    const profile = elevationProfile([points]);
-    expect(profile).toHaveLength(2);
-    expect(profile[1].distanceM).toBeCloseTo(2 * STEP_M, 0);
-  });
-
-  it('일시정지로 나뉜 다중 그룹에서도 거리를 이어서 누적한다', () => {
-    // 재개 지점이 같아도 그룹 경계 쌍의 거리(0)는 그대로 누적 규칙을 따른다
-    const g1 = [pt(0, 0, 10), pt(0.001, 10_000, 10)];
-    const g2 = [pt(0.001, 120_000, 10), pt(0.002, 130_000, 10)];
-    const profile = elevationProfile([g1, g2]);
-    expect(profile).toHaveLength(4);
-    expect(profile[3].distanceM).toBeCloseTo(2 * STEP_M, 0);
-  });
-});

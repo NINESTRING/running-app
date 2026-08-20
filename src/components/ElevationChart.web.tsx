@@ -1,6 +1,6 @@
 import { View } from 'react-native';
 import Svg, { Polyline } from 'react-native-svg';
-import type { ProfilePoint } from '@/lib/splits';
+import type { ProfilePoint } from '@/lib/elevation';
 
 interface Props {
   profile: ProfilePoint[];

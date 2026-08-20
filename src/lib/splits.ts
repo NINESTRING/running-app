@@ -1,4 +1,5 @@
 import type { RoutePoint } from '../types/run';
+import { smoothAltitudes } from './elevation';
 import { haversineM, METERS_PER_MILE } from './geo';
 
 export const SPLIT_KM_M = 1000;
@@ -39,30 +40,6 @@ export function partitionPoints(
     groups[si].push(p);
   }
   return groups.filter((g) => g.length > 0);
-}
-
-const SMOOTH_WINDOW_HALF = 2; // 이동평균 윈도우 5 (중심 ±2)
-
-/**
- * GPS 고도 노이즈(±5~10m)를 흡수하는 이동평균.
- * 고도가 null인 포인트는 null을 유지하고 이웃 평균 계산에서도 제외한다.
- */
-export function smoothAltitudes(points: RoutePoint[]): (number | null)[] {
-  return points.map((p, i) => {
-    if (p.altitude === null) return null;
-    let sum = 0;
-    let n = 0;
-    const from = Math.max(0, i - SMOOTH_WINDOW_HALF);
-    const to = Math.min(points.length - 1, i + SMOOTH_WINDOW_HALF);
-    for (let j = from; j <= to; j++) {
-      const a = points[j].altitude;
-      if (a !== null) {
-        sum += a;
-        n++;
-      }
-    }
-    return sum / n;
-  });
 }
 
 export interface Split {
@@ -194,44 +171,4 @@ export function liveSplitPaceSec(
     { ...split, durationSec: split.durationSec + Math.max(0, extraSec) },
     splitDistanceM
   );
-}
-
-/** 구간 고도 변화 표기: 상승 +N m, 하강 -N m, 0은 무부호, null은 — */
-export function formatElevationDelta(deltaM: number | null): string {
-  if (deltaM === null) return '—';
-  const r = Math.round(deltaM);
-  return r > 0 ? `+${r} m` : `${r} m`; // String(-0) === '0'이라 -0도 '0 m'
-}
-
-/** 총 상승고도: 스무딩 후 양(+)의 변화만 합산. 유효 고도가 2개 미만이면 null */
-export function elevationGainM(groups: RoutePoint[][]): number | null {
-  const alts = smoothAltitudes(groups.flat()).filter(
-    (a): a is number => a !== null
-  );
-  if (alts.length < 2) return null;
-  let gain = 0;
-  for (let i = 1; i < alts.length; i++) {
-    const d = alts[i] - alts[i - 1];
-    if (d > 0) gain += d;
-  }
-  return gain;
-}
-
-export interface ProfilePoint {
-  distanceM: number;
-  altitudeM: number;
-}
-
-/** 고도 그래프용 누적 거리 × 스무딩 고도 시리즈. 고도 null 포인트는 제외(거리는 누적). */
-export function elevationProfile(groups: RoutePoint[][]): ProfilePoint[] {
-  const flat = groups.flat();
-  const smoothed = smoothAltitudes(flat);
-  const out: ProfilePoint[] = [];
-  let dist = 0;
-  for (let i = 0; i < flat.length; i++) {
-    if (i > 0) dist += haversineM(flat[i - 1], flat[i]);
-    const a = smoothed[i];
-    if (a !== null) out.push({ distanceM: dist, altitudeM: a });
-  }
-  return out;
 }

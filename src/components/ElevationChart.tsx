@@ -1,5 +1,5 @@
 import { CartesianChart, Line } from 'victory-native';
-import type { ProfilePoint } from '@/lib/splits';
+import type { ProfilePoint } from '@/lib/elevation';
 
 interface Props {
   profile: ProfilePoint[];

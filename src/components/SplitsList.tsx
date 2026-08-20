@@ -1,7 +1,8 @@
 import { View } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { formatPace } from '@/lib/geo';
-import { formatElevationDelta, splitPaceSec, type Split } from '@/lib/splits';
+import { formatElevationDelta } from '@/lib/elevation';
+import { splitPaceSec, type Split } from '@/lib/splits';
 
 interface Props {
   completed: Split[];
