@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- 필터 상수: `MEDIAN_WINDOW_HALF = 2`, `SMOOTH_RADIUS_M = 50`, `GAIN_THRESHOLD_M = 5`, `elevationYDomain` 기본 `minSpanM = 40`. 이 값들은 파라미터 스윕 실측으로 확정됐다 — 임의로 바꾸지 말 것.
+- 필터 상수는 모두 `elevation.ts` 모듈 내부 상수다(export하지 않음 — 소비자가 없다): `MEDIAN_WINDOW_HALF = 2`, `SMOOTH_RADIUS_M = 50`, `GAIN_THRESHOLD_M = 5`, `DEFAULT_MIN_SPAN_M = 40`. 이 값들은 파라미터 스윕 실측으로 확정됐다 — 임의로 바꾸지 말 것.
 - `null` 고도 처리 규칙은 기존 동작을 유지한다: 입력이 `null`인 포인트의 출력은 `null`이고, 이웃의 평균·중앙값 계산에서도 제외된다.
 - `RunRecord` / `RoutePoint` 타입, Supabase 스키마, 마이그레이션은 건드리지 않는다.
 - `splits.ts`에 재export를 남기지 않는다. 옮긴 심볼의 모든 호출부 import를 `@/lib/elevation`으로 갱신한다.
@@ -32,7 +32,6 @@
 **Interfaces:**
 - Consumes: `RoutePoint` from `../types/run`, `haversineM` from `./geo`
 - Produces:
-  - `export const SMOOTH_RADIUS_M = 50`
   - `export function smoothAltitudes(points: RoutePoint[]): (number | null)[]`
 
 - [ ] **Step 1: 테스트 파일을 만들고 실패하는 테스트를 작성한다**
@@ -133,7 +132,7 @@ import { haversineM } from './geo';
 /** 1단계 중앙값 필터 윈도우 반폭 (윈도우 5 = 중심 ±2) */
 const MEDIAN_WINDOW_HALF = 2;
 /** 2단계 이동평균 윈도우 반경. 거리 기준이라 러너 속도와 무관하게 강도가 일정하다 */
-export const SMOOTH_RADIUS_M = 50;
+const SMOOTH_RADIUS_M = 50;
 
 /** 윈도우 내 null이 아닌 값들의 중앙값. 값이 없으면 null */
 function medianAt(alts: (number | null)[], i: number): number | null {
@@ -234,7 +233,6 @@ git commit -m "feat(elevation): 중앙값 + 거리 기준 이동평균 2단계 �
 **Interfaces:**
 - Consumes: Task 1의 `smoothAltitudes(points: RoutePoint[]): (number | null)[]`
 - Produces (모두 `src/lib/elevation.ts`에서 export):
-  - `export const GAIN_THRESHOLD_M = 5`
   - `export interface ProfilePoint { distanceM: number; altitudeM: number }`
   - `export function elevationGainM(groups: RoutePoint[][]): number | null`
   - `export function elevationProfile(groups: RoutePoint[][]): ProfilePoint[]`
@@ -295,6 +293,19 @@ describe('elevationGainM', () => {
     const alts = [10, 10, 10, 0, 0, 0];
     const points = alts.map((a, i) => pt(i * 0.001, i * 10_000, a));
     expect(elevationGainM([points])).toBe(0);
+  });
+
+  it('상승 후 같은 높이로 하강하면 상승분만 계상한다', () => {
+    // 1km에 30m 오르고 1km에 30m 내려온다. 총 이동 고도차는 60m지만 상승은 30m
+    const up = line(143, 7, (i) => (i * 30) / 142);
+    const down = line(143, 7, (i) => 30 - (i * 30) / 142).map((p, i) => ({
+      ...p,
+      latitude: (143 + i) * 7 * M_TO_DEG,
+      timestamp: (143 + i) * 3000,
+    }));
+    const gain = elevationGainM([[...up, ...down]]);
+    expect(gain).toBeGreaterThan(24); // 실측 25.418
+    expect(gain).toBeLessThanOrEqual(30);
   });
 
   it('유효 고도가 2개 미만이면 null', () => {
@@ -373,7 +384,7 @@ Expected: FAIL — `elevationGainM is not a function` (아직 `elevation.ts`에 
  * 스무딩 후에도 남는 저주파 드리프트 진폭(약 ±4m)을 넘어야 드리프트가 상승으로
  * 계상되지 않는다. 실측: 임계값 3m에서 평지 2km가 15.2m, 5m에서 0m.
  */
-export const GAIN_THRESHOLD_M = 5;
+const GAIN_THRESHOLD_M = 5;
 
 /**
  * 총 상승고도. 기준점에서 GAIN_THRESHOLD_M 이상 올라간 분만 합산하고,
@@ -749,7 +760,8 @@ git commit -m "fix(ui): 고도 차트 y축 최소 표시범위 40m — 평지 �
 
 Run: `npm run ios`
 
-프로비저닝이 만료됐거나 Debug/Release 프리빌트 충돌이 나면 `docs/`의 실기기 빌드 트러블슈팅 문서를 먼저 볼 것. 이 변경은 네이티브 코드를 건드리지 않으므로 리빌드 없이 기존 dev build에 Fast Refresh만으로도 확인 가능하다.
+프로비저닝이 만료됐거나 Debug/Release 프리빌트 충돌이 나면 `README.md`의
+"실기기 빌드 문제 해결" 섹션을 먼저 볼 것. 이 변경은 네이티브 코드를 건드리지 않으므로 리빌드 없이 기존 dev build에 Fast Refresh만으로도 확인 가능하다.
 
 - [ ] **Step 2: 문제의 기록을 확인한다**
 
