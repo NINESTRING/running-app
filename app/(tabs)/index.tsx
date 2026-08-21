@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Linking, Platform, Pressable, View } from 'react-native';
 import { LocateFixed } from 'lucide-react-native';
 import { Icon } from '@/components/ui/icon';
@@ -153,10 +153,13 @@ export default function HomeScreen() {
 
   // 러닝·일시정지 중 현재 구간 번호와 실시간 구간 페이스
   const splitDistanceM = splitDistanceFor(unit);
-  const liveSplits =
-    status === 'running' || status === 'paused'
-      ? computeSplits(partitionPoints(points, segments), splitDistanceM)
-      : null;
+  const liveSplits = useMemo(
+    () =>
+      status === 'running' || status === 'paused'
+        ? computeSplits(partitionPoints(points, segments), splitDistanceM)
+        : null,
+    [status, points, segments, splitDistanceM]
+  );
   // 러닝 중에는 마지막 GPS 포인트 이후 경과 시간을 가산 — 멈춰 서면 페이스가 점점 느려진다.
   // 재개 직후엔 세그먼트 시작이 앵커라 일시정지 시간은 가산되지 않는다.
   const extraSec = liveExtraSec(
