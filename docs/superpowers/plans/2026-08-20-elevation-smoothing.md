@@ -161,7 +161,13 @@ function medianAt(alts: (number | null)[], i: number): number | null {
  *
  * 고도가 null인 포인트는 null을 유지하고 이웃 계산에서도 제외한다.
  * 일시정지 구간 경계는 특별 취급하지 않는다 — 일시정지 중 이동 거리도 누적
- * 거리에 포함되어 윈도우가 그만큼 넓어지는데, 평탄화 방향으로만 작용한다.
+ * 거리에 그대로 포함되어, 경계를 넘는 순간 누적 거리가 한 번에 크게 뛴다. 그
+ * 결과 경계 근처 이웃은 ±SMOOTH_RADIUS_M 범위 밖으로 밀려나 윈도우에 포함되는
+ * 샘플 수가 줄어들고, 평탄화가 오히려 약해진다(평탄화가 강해지는 방향이 아니다).
+ * 실측: ±6m 톱니·7m 간격에서 잔여 진폭이 연속 구간 약 0.80m인데 3km 위치
+ * 점프 경계에서는 약 1.34m로, 경계 좌우 약 7개 포인트 구간에서만 국소적으로
+ * 커진다. 그 정도 잔여 노이즈는 GAIN_THRESHOLD_M의 5m 히스테리시스가 흡수해
+ * 총 상승고도에는 영향이 없다(연속·점프 두 경우 모두 실측 총 상승고도 0m).
  */
 export function smoothAltitudes(points: RoutePoint[]): (number | null)[] {
   const raw = points.map((p) => p.altitude);
