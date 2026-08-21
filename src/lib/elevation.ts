@@ -128,9 +128,18 @@ export function elevationProfile(groups: RoutePoint[][]): ProfilePoint[] {
   return out;
 }
 
-/** 구간 고도 변화 표기: 상승 +N m, 하강 -N m, 0은 무부호, null은 — */
+/**
+ * 구간 고도 변화 표기: 상승 +N m, 하강 -N m, 0은 무부호, null은 —.
+ *
+ * 절대값이 GAIN_THRESHOLD_M(5m) 이하면 무조건 '0 m'로 표시한다. elevationGainM의
+ * 요약 상승고도가 같은 임계값 이하에서는 0으로 유지되는데, 구간별 델타에 바닥이
+ * 없으면 화면 상단 요약은 '↑ 0 m'인데 바로 아래 구간 목록엔 '+2 m'가 찍혀 같은
+ * 화면에서 서로 다른 말을 하게 된다. 두 수치가 같은 임계값을 공유하도록 여기서도
+ * GAIN_THRESHOLD_M을 그대로 재사용한다.
+ */
 export function formatElevationDelta(deltaM: number | null): string {
   if (deltaM === null) return '—';
+  if (Math.abs(deltaM) <= GAIN_THRESHOLD_M) return '0 m';
   const r = Math.round(deltaM);
   return r > 0 ? `+${r} m` : `${r} m`; // String(-0) === '0'이라 -0도 '0 m'
 }

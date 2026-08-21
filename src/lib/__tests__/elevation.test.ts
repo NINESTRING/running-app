@@ -178,11 +178,24 @@ describe('elevationProfile', () => {
 });
 
 describe('formatElevationDelta', () => {
-  it('상승은 + 부호를 붙인다', () => {
-    expect(formatElevationDelta(4.4)).toBe('+4 m');
+  it('5m 노이즈 바닥 이내면 0m — elevationGainM과 같은 임계값', () => {
+    expect(formatElevationDelta(4.4)).toBe('0 m');
   });
 
-  it('하강은 - 부호를 붙인다', () => {
+  it('바닥보다 살짝 안쪽(4.9m)도 0m', () => {
+    expect(formatElevationDelta(4.9)).toBe('0 m');
+  });
+
+  it('바닥 값과 정확히 같으면(5.0m) 0m — strictly greater만 통과', () => {
+    expect(formatElevationDelta(5.0)).toBe('0 m');
+    expect(formatElevationDelta(-5.0)).toBe('0 m');
+  });
+
+  it('바닥을 살짝 벗어나면(양) + 부호로 표시', () => {
+    expect(formatElevationDelta(5.4)).toBe('+5 m');
+  });
+
+  it('바닥을 살짝 벗어나면(음) - 부호로 표시', () => {
     expect(formatElevationDelta(-5.3)).toBe('-5 m');
   });
 
