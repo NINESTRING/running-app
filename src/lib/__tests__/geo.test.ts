@@ -1,9 +1,11 @@
 import {
+  bearingDeg,
   formatDistance,
   formatDistanceKm,
   formatDuration,
   formatPace,
   haversineM,
+  headingDiffDeg,
   paceSecPerUnit,
   regionForRoute,
 } from '../geo';
@@ -128,4 +130,27 @@ describe('formatDistance', () => {
   it('km 단위는 반올림된 소수 2자리', () => {
     expect(formatDistance(5234, 'km')).toBe('5.23');
   });
+});
+
+describe('bearingDeg', () => {
+  const origin = { latitude: 37.5665, longitude: 126.978 };
+  it('북쪽은 0도', () => {
+    expect(bearingDeg(origin, { latitude: 37.57, longitude: 126.978 })).toBeCloseTo(0, 0);
+  });
+  it('동쪽은 90도', () => {
+    expect(bearingDeg(origin, { latitude: 37.5665, longitude: 126.99 })).toBeCloseTo(90, 0);
+  });
+  it('남쪽은 180도', () => {
+    expect(bearingDeg(origin, { latitude: 37.56, longitude: 126.978 })).toBeCloseTo(180, 0);
+  });
+  it('서쪽은 270도', () => {
+    expect(bearingDeg(origin, { latitude: 37.5665, longitude: 126.97 })).toBeCloseTo(270, 0);
+  });
+});
+
+describe('headingDiffDeg', () => {
+  it('같은 방향은 0', () => expect(headingDiffDeg(45, 45)).toBe(0));
+  it('반대 방향은 180', () => expect(headingDiffDeg(0, 180)).toBe(180));
+  it('360 경계를 감아서 계산한다', () => expect(headingDiffDeg(350, 10)).toBe(20));
+  it('순서 무관', () => expect(headingDiffDeg(10, 350)).toBe(20));
 });

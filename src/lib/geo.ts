@@ -87,3 +87,21 @@ export function formatDistance(m: number, unit: 'km' | 'mi'): string {
   const km = m / 1000;
   return unit === 'mi' ? (km * MILES_PER_KM).toFixed(2) : km.toFixed(2);
 }
+
+/** a → b 진행 방위각 (도). 0 = 북, 시계방향, [0, 360) */
+export function bearingDeg(a: LatLng, b: LatLng): number {
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const lat1 = toRad(a.latitude);
+  const lat2 = toRad(b.latitude);
+  const dLon = toRad(b.longitude - a.longitude);
+  const y = Math.sin(dLon) * Math.cos(lat2);
+  const x =
+    Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+  return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
+}
+
+/** 두 방위각의 최소 각차 [0, 180] — 360 경계를 감아서 계산 */
+export function headingDiffDeg(a: number, b: number): number {
+  const d = Math.abs(a - b) % 360;
+  return d > 180 ? 360 - d : d;
+}
