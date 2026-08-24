@@ -14,10 +14,12 @@ interface SettingsState {
   theme: ThemePreference;
   voiceDistanceUnits: VoiceDistanceUnits | null; // null = 끔
   voiceTimeMin: VoiceTimeMin | null; // null = 끔
+  voiceLapOn: boolean; // 바퀴 완주 음성 안내. 거리·시간 안내가 하나라도 켜져 있을 때만 발화
   setUnit: (unit: 'km' | 'mi') => void;
   setTheme: (theme: ThemePreference) => void;
   setVoiceDistanceUnits: (v: VoiceDistanceUnits | null) => void;
   setVoiceTimeMin: (v: VoiceTimeMin | null) => void;
+  setVoiceLapOn: (v: boolean) => void;
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -27,10 +29,12 @@ export const useSettingsStore = create<SettingsState>()(
       theme: 'system',
       voiceDistanceUnits: null,
       voiceTimeMin: null,
+      voiceLapOn: true,
       setUnit: (unit) => set({ unit }),
       setTheme: (theme) => set({ theme }),
       setVoiceDistanceUnits: (voiceDistanceUnits) => set({ voiceDistanceUnits }),
       setVoiceTimeMin: (voiceTimeMin) => set({ voiceTimeMin }),
+      setVoiceLapOn: (voiceLapOn) => set({ voiceLapOn }),
     }),
     {
       // 기존 저장본에는 voice* 키가 없다. persist가 초기 상태 위에 얕은 병합을 하므로

@@ -76,6 +76,7 @@ export default function HomeScreen() {
   const startedAt = useRunStore((s) => s.startedAt);
   const stepSamples = useRunStore((s) => s.stepSamples);
   const segments = useRunStore((s) => s.segments);
+  const lapState = useRunStore((s) => s.lapState);
   const unit = useSettingsStore((s) => s.unit);
   const goalPaceSec = useGoalStore((s) => s.paceSecPerUnit);
   const goalDistanceUnits = useGoalStore((s) => s.distanceUnits);
@@ -133,7 +134,15 @@ export default function HomeScreen() {
   }, [status]);
 
   const elapsed = elapsedMs({ accumulatedMs, segmentStartedAt }, now);
-  useVoiceCues({ status, startedAt, distanceM, elapsedMs: elapsed });
+  const lastLap = lapState.laps[lapState.laps.length - 1];
+  useVoiceCues({
+    status,
+    startedAt,
+    distanceM,
+    elapsedMs: elapsed,
+    lapCount: lapState.laps.length,
+    lastLapDurationMs: lastLap ? Math.round(lastLap.durationSec * 1000) : null,
+  });
 
   // 목표 페이스 대비 편차 — 30초 미만이면 null(초반 가드)
   const goalDelta =
@@ -334,6 +343,7 @@ export default function HomeScreen() {
           unit,
           paceSecPerUnit: paceSecPerUnit(s.distanceM, summaryElapsedMs, unit),
           goalDistanceUnits,
+          lapCount: null,
         }),
       );
       setDialog({ type: 'saved' });

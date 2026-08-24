@@ -30,6 +30,8 @@ export function VoiceGuideSection() {
   const timeMin = useSettingsStore((s) => s.voiceTimeMin);
   const setDistanceUnits = useSettingsStore((s) => s.setVoiceDistanceUnits);
   const setTimeMin = useSettingsStore((s) => s.setVoiceTimeMin);
+  const lapOn = useSettingsStore((s) => s.voiceLapOn);
+  const setLapOn = useSettingsStore((s) => s.setVoiceLapOn);
 
   // 실제 안내와 같은 함수로 문장을 만든다 — 미리듣기가 실제와 어긋날 수 없고,
   // 단위 설정도 자동으로 반영된다.
@@ -99,6 +101,26 @@ export function VoiceGuideSection() {
               <Text>{String(v)}</Text>
             </ToggleGroupItem>
           ))}
+        </ToggleGroup>
+      </View>
+
+      <View className="gap-2">
+        <Text className="text-sm text-muted-foreground">바퀴마다 (루프 감지 시)</Text>
+        <ToggleGroup
+          type="single"
+          value={lapOn ? 'on' : OFF}
+          onValueChange={(v) => {
+            if (!v) return;
+            setLapOn(v === 'on');
+          }}
+          className="justify-start"
+        >
+          <ToggleGroupItem value={OFF} isFirst>
+            <Text>끔</Text>
+          </ToggleGroupItem>
+          <ToggleGroupItem value="on" isLast>
+            <Text>켬</Text>
+          </ToggleGroupItem>
         </ToggleGroup>
       </View>
 

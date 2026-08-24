@@ -3,6 +3,7 @@ import {
   countdownCueText,
   INITIAL_VOICE_CUE_STATE,
   isVoiceGuideOn,
+  lapCueText,
   nextVoiceCue,
   speakDuration,
   speakGoalDelta,
@@ -181,32 +182,37 @@ describe('voiceSummaryText', () => {
   };
 
   test('목표 거리가 없으면 세 문장', () => {
-    expect(voiceSummaryText({ ...base, goalDistanceUnits: null })).toBe(
+    expect(voiceSummaryText({ ...base, goalDistanceUnits: null, lapCount: null })).toBe(
       '수고하셨습니다. 총 35분 12초, 5.2킬로미터. 평균 페이스 킬로미터당 6분 45초.',
     );
   });
 
   test('페이스가 null이면 측정 중으로 읽는다', () => {
     expect(
-      voiceSummaryText({ ...base, paceSecPerUnit: null, goalDistanceUnits: null }),
+      voiceSummaryText({
+        ...base,
+        paceSecPerUnit: null,
+        goalDistanceUnits: null,
+        lapCount: null,
+      }),
     ).toBe('수고하셨습니다. 총 35분 12초, 5.2킬로미터. 평균 페이스 측정 중.');
   });
 
   test('목표 거리를 달성하면 달성 문장이 붙는다', () => {
-    expect(voiceSummaryText({ ...base, goalDistanceUnits: 5 })).toBe(
+    expect(voiceSummaryText({ ...base, goalDistanceUnits: 5, lapCount: null })).toBe(
       '수고하셨습니다. 총 35분 12초, 5.2킬로미터. 평균 페이스 킬로미터당 6분 45초. 목표 5킬로미터를 달성했습니다.',
     );
   });
 
   test('미달이면 남은 거리를 미터로 읽는다', () => {
     expect(
-      voiceSummaryText({ ...base, distanceM: 4680, goalDistanceUnits: 5 }),
+      voiceSummaryText({ ...base, distanceM: 4680, goalDistanceUnits: 5, lapCount: null }),
     ).toContain('목표 5킬로미터에 320미터 못 미쳤습니다.');
   });
 
   test('목표 거리와 정확히 같으면 달성이다', () => {
     expect(
-      voiceSummaryText({ ...base, distanceM: 5000, goalDistanceUnits: 5 }),
+      voiceSummaryText({ ...base, distanceM: 5000, goalDistanceUnits: 5, lapCount: null }),
     ).toContain('목표 5킬로미터를 달성했습니다.');
   });
 
@@ -218,10 +224,23 @@ describe('voiceSummaryText', () => {
         distanceM: 3 * METERS_PER_MILE,
         paceSecPerUnit: 652,
         goalDistanceUnits: 3,
+        lapCount: null,
       }),
     ).toBe(
       '수고하셨습니다. 총 35분 12초, 3마일. 평균 페이스 마일당 10분 52초. 목표 3마일을 달성했습니다.',
     );
+  });
+
+  it('바퀴 수가 있으면 한 문장 추가한다', () => {
+    const text = voiceSummaryText({
+      elapsedMs: 1_800_000,
+      distanceM: 4800,
+      unit: 'km',
+      paceSecPerUnit: 375,
+      goalDistanceUnits: null,
+      lapCount: 12,
+    });
+    expect(text).toContain('12바퀴');
   });
 });
 
@@ -243,6 +262,8 @@ describe('nextVoiceCue', () => {
     distanceUnits: 1 as number | null,
     timeMin: 1 as number | null,
     state: INITIAL_VOICE_CUE_STATE,
+    lapCount: 0,
+    lapOn: false,
   };
 
   test('거리 마일스톤에 닿으면 distance', () => {
@@ -287,7 +308,7 @@ describe('nextVoiceCue', () => {
       timeMin: null,
       distanceM: 3200,
       elapsedMs: 0,
-      state: { lastDistanceM: 900, lastElapsedMs: 0 },
+      state: { lastDistanceM: 900, lastElapsedMs: 0, lastLapCount: 0 },
     });
     expect(first.cue).toBe('distance');
     expect(first.state.lastDistanceM).toBe(3200);
@@ -321,7 +342,7 @@ describe('nextVoiceCue', () => {
       distanceM: 3200,
       elapsedMs: 600_000,
     });
-    expect(r.state).toEqual({ lastDistanceM: 3200, lastElapsedMs: 600_000 });
+    expect(r.state).toEqual({ lastDistanceM: 3200, lastElapsedMs: 600_000, lastLapCount: 0 });
   });
 
   test('러닝 중 축을 껐다 켜도 그동안 지나간 마일스톤이 터지지 않는다', () => {
@@ -361,7 +382,7 @@ describe('nextVoiceCue', () => {
       timeMin: null,
       distanceM: 2050,
       elapsedMs: 0,
-      state: { lastDistanceM: 2010, lastElapsedMs: 0 },
+      state: { lastDistanceM: 2010, lastElapsedMs: 0, lastLapCount: 0 },
     });
     expect(r.cue).toBeNull();
 
@@ -424,8 +445,49 @@ describe('nextVoiceCue', () => {
       timeMin: null,
       distanceM: 1900,
       elapsedMs: 0,
-      state: { lastDistanceM: 2010, lastElapsedMs: 0 },
+      state: { lastDistanceM: 2010, lastElapsedMs: 0, lastLapCount: 0 },
     });
     expect(r.cue).toBeNull();
+  });
+});
+
+describe('lap 큐', () => {
+  const base = {
+    distanceM: 0,
+    elapsedMs: 0,
+    unit: 'km' as const,
+    distanceUnits: null,
+    timeMin: null,
+    state: { lastDistanceM: 0, lastElapsedMs: 0, lastLapCount: 0 },
+  };
+
+  it('바퀴 수가 늘면 lap 큐를 낸다', () => {
+    const { cue, state } = nextVoiceCue({ ...base, lapCount: 1, lapOn: true });
+    expect(cue).toBe('lap');
+    expect(state.lastLapCount).toBe(1);
+  });
+
+  it('lap과 distance가 같은 틱에 걸리면 lap만 말하고 상태는 모두 전진한다', () => {
+    const { cue, state } = nextVoiceCue({
+      ...base,
+      distanceM: 1000,
+      distanceUnits: 1,
+      lapCount: 1,
+      lapOn: true,
+    });
+    expect(cue).toBe('lap');
+    expect(state.lastDistanceM).toBe(1000); // 다음 틱에 distance가 소급 발화되지 않는다
+  });
+
+  it('lapOn이 꺼져 있으면 lap 큐를 내지 않는다', () => {
+    const { cue, state } = nextVoiceCue({ ...base, lapCount: 2, lapOn: false });
+    expect(cue).toBeNull();
+    expect(state.lastLapCount).toBe(2); // 꺼져 있어도 기준점은 전진 — 켜는 순간 몰아 읽지 않는다
+  });
+});
+
+describe('lapCueText', () => {
+  it('바퀴 번호와 랩타임을 읽는다', () => {
+    expect(lapCueText({ lapIndex: 3, lapDurationMs: 125_000 })).toBe('3바퀴. 랩타임 2분 5초.');
   });
 });

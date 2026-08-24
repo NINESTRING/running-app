@@ -5,6 +5,7 @@ import { goalDeltaM } from '@/lib/goal';
 import {
   INITIAL_VOICE_CUE_STATE,
   isVoiceGuideOn,
+  lapCueText,
   nextVoiceCue,
   voiceCueText,
   type VoiceCueState,
@@ -25,11 +26,14 @@ export function useVoiceCues(p: {
   startedAt: number | null;
   distanceM: number;
   elapsedMs: number;
+  lapCount: number;
+  lastLapDurationMs: number | null;
 }): void {
-  const { status, startedAt, distanceM, elapsedMs } = p;
+  const { status, startedAt, distanceM, elapsedMs, lapCount, lastLapDurationMs } = p;
   const unit = useSettingsStore((s) => s.unit);
   const distanceUnits = useSettingsStore((s) => s.voiceDistanceUnits);
   const timeMin = useSettingsStore((s) => s.voiceTimeMin);
+  const voiceLapOn = useSettingsStore((s) => s.voiceLapOn);
   const goalPaceSec = useGoalStore((s) => s.paceSecPerUnit);
 
   const cueStateRef = useRef<VoiceCueState>(INITIAL_VOICE_CUE_STATE);
@@ -64,10 +68,19 @@ export function useVoiceCues(p: {
       unit,
       distanceUnits,
       timeMin,
+      lapCount,
+      lapOn: voiceLapOn && isVoiceGuideOn(distanceUnits, timeMin),
       state: cueStateRef.current,
     });
     cueStateRef.current = state;
     if (cue === null) return;
+
+    if (cue === 'lap') {
+      speakCue(
+        lapCueText({ lapIndex: lapCount, lapDurationMs: lastLapDurationMs ?? 0 }),
+      );
+      return;
+    }
 
     speakCue(
       voiceCueText({
@@ -82,5 +95,17 @@ export function useVoiceCues(p: {
             : goalDeltaM({ distanceM, elapsedMs, paceSecPerUnit: goalPaceSec, unit }),
       }),
     );
-  }, [status, startedAt, distanceM, elapsedMs, unit, distanceUnits, timeMin, goalPaceSec]);
+  }, [
+    status,
+    startedAt,
+    distanceM,
+    elapsedMs,
+    unit,
+    distanceUnits,
+    timeMin,
+    goalPaceSec,
+    lapCount,
+    lastLapDurationMs,
+    voiceLapOn,
+  ]);
 }

@@ -75,6 +75,11 @@ export function voiceCueText(p: {
   return `${sentences.join('. ')}.`;
 }
 
+/** 바퀴 완주 안내 한 건의 발화문. "3바퀴. 랩타임 2분 5초." */
+export function lapCueText(p: { lapIndex: number; lapDurationMs: number }): string {
+  return `${p.lapIndex}바퀴. 랩타임 ${speakDuration(p.lapDurationMs)}.`;
+}
+
 // 한글 수사 0~10. TTS가 "3"을 읽는 방식에 기대지 않고 직접 적는다.
 const SINO_NUMBERS = ['영', '일', '이', '삼', '사', '오', '육', '칠', '팔', '구', '십'];
 
@@ -103,6 +108,7 @@ export function voiceSummaryText(p: {
   unit: 'km' | 'mi';
   paceSecPerUnit: number | null;
   goalDistanceUnits: number | null;
+  lapCount: number | null;
 }): string {
   const unitM = unitMeters(p.unit);
   const noun = UNIT_NOUN[p.unit];
@@ -120,6 +126,10 @@ export function voiceSummaryText(p: {
         ? `목표 ${goalNoun}${UNIT_OBJECT[p.unit]} 달성했습니다`
         : `목표 ${goalNoun}에 ${Math.round(goalM - p.distanceM)}미터 못 미쳤습니다`,
     );
+  }
+
+  if (p.lapCount !== null && p.lapCount >= 1) {
+    sentences.push(`${p.lapCount}바퀴를 돌았습니다`);
   }
 
   return `${sentences.join('. ')}.`;
@@ -140,14 +150,16 @@ export function isVoiceGuideOn(
 export interface VoiceCueState {
   lastDistanceM: number;
   lastElapsedMs: number;
+  lastLapCount: number;
 }
 
 export const INITIAL_VOICE_CUE_STATE: VoiceCueState = {
   lastDistanceM: 0,
   lastElapsedMs: 0,
+  lastLapCount: 0,
 };
 
-export type VoiceCue = 'distance' | 'time' | null;
+export type VoiceCue = 'lap' | 'distance' | 'time' | null;
 
 /**
  * 이번 틱에 안내를 내보낼지 판정한다.
@@ -164,12 +176,19 @@ export function nextVoiceCue(p: {
   unit: 'km' | 'mi';
   distanceUnits: number | null; // null = 거리 안내 끔
   timeMin: number | null; // null = 시간 안내 끔
+  lapCount: number;
+  lapOn: boolean;
   state: VoiceCueState;
 }): { state: VoiceCueState; cue: VoiceCue } {
   const state: VoiceCueState = {
     lastDistanceM: p.distanceM,
     lastElapsedMs: p.elapsedMs,
+    lastLapCount: p.lapCount,
   };
+
+  if (p.lapOn && p.lapCount > p.state.lastLapCount) {
+    return { state, cue: 'lap' };
+  }
 
   if (p.distanceUnits !== null) {
     const step = p.distanceUnits * unitMeters(p.unit);
