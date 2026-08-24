@@ -392,7 +392,7 @@ export default function HomeScreen() {
                   )}`}
                 </Text>
               )}
-              {lapState.gate !== null && (
+              {lapState.gate !== null && (status === 'running' || status === 'paused') && (
                 <Text className="text-center text-lg text-muted-foreground">
                   {`랩 ${lapState.laps.length + 1} · ${formatDuration(liveLapMs)}`}
                 </Text>

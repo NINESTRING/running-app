@@ -1,5 +1,5 @@
 import { useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, ScrollView, View } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { ElevationChart } from '@/components/ElevationChart';
@@ -33,6 +33,12 @@ export default function RunDetailScreen() {
       cancelled = true;
     };
   }, [id]);
+
+  // 랩 재계산은 O(포인트×후보점)라 렌더마다 다시 돌리기엔 무겁다 — 기록이 바뀔 때만 계산
+  const lapResult = useMemo(
+    () => (run && run.routePoints ? computeLaps(run.routePoints) : null),
+    [run],
+  );
 
   if (run === undefined) {
     return (
@@ -68,9 +74,6 @@ export default function RunDetailScreen() {
     : null;
   const gain = run.routePoints ? elevationGainM(run.routePoints) : null;
   const profile = run.routePoints ? elevationProfile(run.routePoints) : [];
-  // 바퀴는 저장된 경로에서 재계산 — 라이브 감지와 같은 코드라 결과가 일치하고,
-  // 스키마 변경 없이 기존 기록에도 소급 적용된다
-  const lapResult = run.routePoints ? computeLaps(run.routePoints) : null;
   const laps = lapResult !== null && lapResult.laps.length >= 1 ? lapResult.laps : null;
 
   return (
