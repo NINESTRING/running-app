@@ -9,9 +9,15 @@ export const CANDIDATE_SPACING_M = 15; // 게이트 반경 25m 대비 충분히 
 
 // 방위각 계산 기준선 — 원시 GPS 쌍(5m)은 지터에 흔들려 후보점(≥15m)을 앵커로 쓴다
 const HEADING_BASE_M = 8;
+// 방위각 앵커 탐색 범위: 후보점 간격(~15m) 기준 최근 4개면 최대 ~60m 되돌아본다 —
+// MOVE_WINDOW_M과 같은 스케일이라 앵커를 못 찾는 경우가 거의 없다
+const HEADING_LOOKBACK_CANDIDATES = 4;
 // 전진 판정: 최근 60m 경로에서 직선 변위 30m 미만이면 정지 지터로 보고 판정을 쉰다
 const MOVE_WINDOW_M = 60;
 const MOVE_MIN_M = 30;
+// 세그먼트-원 교차 계산용 위도 1도당 미터 근사. 게이트 반경(25m) 스케일에서는
+// 구면 보정 없이도 오차가 무시할 만하다 — 최종 거리 검증은 항상 haversineM으로 한다
+const M_PER_LAT_DEG = 111_320;
 
 export interface Lap {
   index: number; // 1부터
@@ -64,7 +70,11 @@ export const INITIAL_LAP_STATE: LapState = {
  * 앵커가 없으면(시작 직후·제자리 지터) null — 그 틱은 게이트 판정을 쉰다.
  */
 function headingAt(candidates: Candidate[], p: RoutePoint): number | null {
-  for (let i = candidates.length - 1; i >= 0 && i >= candidates.length - 4; i--) {
+  for (
+    let i = candidates.length - 1;
+    i >= 0 && i >= candidates.length - HEADING_LOOKBACK_CANDIDATES;
+    i--
+  ) {
     if (haversineM(candidates[i], p) >= HEADING_BASE_M) return bearingDeg(candidates[i], p);
   }
   return null;
@@ -84,9 +94,57 @@ function isMovingForward(candidates: Candidate[], p: RoutePoint, cumDistM: numbe
   return false;
 }
 
+/** gate를 원점으로 하는 로컬 평면(x=동, y=북) 미터 오프셋. 근접 반경 스케일 근사 */
+function localOffsetM(
+  origin: { latitude: number; longitude: number },
+  p: { latitude: number; longitude: number }
+): { x: number; y: number } {
+  const mPerLon = M_PER_LAT_DEG * Math.cos((origin.latitude * Math.PI) / 180);
+  return {
+    x: (p.longitude - origin.longitude) * mPerLon,
+    y: (p.latitude - origin.latitude) * M_PER_LAT_DEG,
+  };
+}
+
 /**
- * 게이트 반경 진입 시각·거리의 선형 보간 (computeSplits의 경계 보간과 같은 취지).
- * 직전 포인트가 이미 반경 안이거나 분모가 0이면 보간 없이 직전 값으로 둔다.
+ * 세그먼트 prev→next가 gate 반경(GATE_RADIUS_M)에 처음 들어오는 진행률 f∈[0,1].
+ * prev가 이미 반경 안이면 f=0. 세그먼트가 반경에 전혀 닿지 않으면 hits=false —
+ * 원시 포인트 p 하나만 보는 것과 달리, 두 포인트 사이에 GPS 끊김이 있어도 그
+ * 사이 직선이 게이트를 스치기만 하면 감지된다.
+ *
+ * gate 중심 로컬 평면에 투영해 직선-원 교차의 이차방정식을 푼다: A=prev, D=next-prev,
+ * |A + tD|² = R² → t²|D|² + 2t(A·D) + (|A|²-R²) = 0. A가 반경 밖일 때 두 실근은
+ * 항상 같은 부호(진입점이 t=0 앞쪽에 있으면 두 근 모두 음수)이므로 작은 근이
+ * [0,1] 밖이면 이 세그먼트 안에서는 교차가 없다고 본다.
+ */
+function gateSegmentCrossing(
+  gate: { latitude: number; longitude: number },
+  prev: { latitude: number; longitude: number },
+  next: { latitude: number; longitude: number }
+): { hits: boolean; f: number } {
+  const R = GATE_RADIUS_M;
+  const A = localOffsetM(gate, prev);
+  const aMagSq = A.x * A.x + A.y * A.y;
+  if (aMagSq <= R * R) return { hits: true, f: 0 };
+
+  const B = localOffsetM(gate, next);
+  const dx = B.x - A.x;
+  const dy = B.y - A.y;
+  const distSq = dx * dx + dy * dy;
+  if (distSq === 0) return { hits: false, f: 0 }; // prev===next, 이미 밖이라 확인됨
+
+  const aDotD = A.x * dx + A.y * dy;
+  const disc = aDotD * aDotD - distSq * (aMagSq - R * R);
+  if (disc < 0) return { hits: false, f: 0 }; // 세그먼트를 무한히 늘려도 반경에 닿지 않음
+
+  const t = (-aDotD - Math.sqrt(disc)) / distSq;
+  if (t < 0 || t > 1) return { hits: false, f: 0 }; // 교차는 이 세그먼트 구간 밖에서 일어남
+  return { hits: true, f: t };
+}
+
+/**
+ * 게이트 반경 진입 시각·거리의 보간 (computeSplits의 경계 보간과 같은 취지).
+ * gateSegmentCrossing으로 구한 진행률 f를 시간·거리 델타에 적용한다.
  */
 function crossPoint(
   prev: RoutePoint,
@@ -97,14 +155,11 @@ function crossPoint(
   prevCumM: number,
   ddM: number
 ): { runMs: number; cumDistM: number } {
-  const dPrev = haversineM(prev, gate);
-  const dNext = haversineM(next, gate);
-  const denom = dPrev - dNext;
-  const f =
-    dPrev <= GATE_RADIUS_M || denom <= 0
-      ? 0
-      : Math.min(1, (dPrev - GATE_RADIUS_M) / denom);
-  return { runMs: prevRunMs + dtMs * f, cumDistM: prevCumM + ddM * f };
+  const { hits, f } = gateSegmentCrossing(gate, prev, next);
+  // hits=false는 호출부가 이미 통과를 확정한 뒤에만 나올 수 있는 부동소수점 경계
+  // 케이스 — 이 경우 통과 시점을 새 포인트(next)로 귀속한다
+  const frac = hits ? f : 1;
+  return { runMs: prevRunMs + dtMs * frac, cumDistM: prevCumM + ddM * frac };
 }
 
 /**
@@ -176,33 +231,42 @@ export function advanceLaps(state: LapState, p: RoutePoint, pauseBoundary: boole
     }
   } else {
     // 2단계 — 카운트: 반경을 나갔다가 같은 방향으로 재진입하면 +1
-    const dGate = haversineM(next.gate, p);
+    const dGate = haversineM(next.gate, p); // exit 판정은 점 기준 유지
     if (next.insideGate) {
       if (dGate > GATE_RADIUS_M) next = { ...next, insideGate: false };
-    } else if (dGate <= GATE_RADIUS_M && heading !== null && moving) {
-      // 방위각·전진 판정이 불가능한 틱이면 진입 판정 자체를 다음 포인트로 미룬다
-      const isLap =
-        cumDistM - next.lastCrossCumDistM >= MIN_LAP_M &&
-        headingDiffDeg(heading, next.gate.headingDeg) <= HEADING_TOLERANCE_DEG;
-      if (isLap) {
-        const cross = crossPoint(prevLast, next.gate, p, prevRunMs, dt, prevCumM, dd);
-        next = {
-          ...next,
-          laps: [
-            ...next.laps,
-            {
-              index: next.laps.length + 1,
-              durationSec: (cross.runMs - next.lastCrossRunMs) / 1000,
-              distanceM: cross.cumDistM - next.lastCrossCumDistM,
-            },
-          ],
-          insideGate: true,
-          lastCrossRunMs: cross.runMs,
-          lastCrossCumDistM: cross.cumDistM,
-        };
-      } else {
-        // 조건 미달 진입(역방향·최소 거리 미달) — 반경 상태만 갱신, exit 후 재진입 요구 유지
-        next = { ...next, insideGate: true };
+    } else {
+      // 재진입 판정은 prevLast→p 세그먼트가 게이트 반경에 닿는지로 본다. 점 p만
+      // 보면 GPS 끊김(정류장·다리 밑 등 6~10초 통신 단절)으로 반경 안에 원시
+      // 포인트가 하나도 찍히지 않을 때 통과 자체를 놓친다.
+      const crossing = gateSegmentCrossing(next.gate, prevLast, p);
+      if (crossing.hits && heading !== null && moving) {
+        const isLap =
+          cumDistM - next.lastCrossCumDistM >= MIN_LAP_M &&
+          headingDiffDeg(heading, next.gate.headingDeg) <= HEADING_TOLERANCE_DEG;
+        // 진입 직후 insideGate는 새 포인트 p 기준(점 판정)으로 정한다 — exit 판정과
+        // 짝을 맞춰야 한다. 끊김이 커서 p가 이미 반경 밖으로 나가 있으면(스쳐
+        // 지나간 fly-through) 바로 다음 exit→재진입 주기를 기다리게 된다.
+        const insideGate = dGate <= GATE_RADIUS_M;
+        if (isLap) {
+          const cross = crossPoint(prevLast, next.gate, p, prevRunMs, dt, prevCumM, dd);
+          next = {
+            ...next,
+            laps: [
+              ...next.laps,
+              {
+                index: next.laps.length + 1,
+                durationSec: (cross.runMs - next.lastCrossRunMs) / 1000,
+                distanceM: cross.cumDistM - next.lastCrossCumDistM,
+              },
+            ],
+            insideGate,
+            lastCrossRunMs: cross.runMs,
+            lastCrossCumDistM: cross.cumDistM,
+          };
+        } else {
+          // 조건 미달 진입(역방향·최소 거리 미달) — 반경 상태만 갱신, exit 후 재진입 요구 유지
+          next = { ...next, insideGate };
+        }
       }
     }
   }
@@ -244,11 +308,13 @@ export function computeLaps(groups: RoutePoint[][]): LapState {
   return state;
 }
 
-/** 진행 중인 바퀴. 게이트 확정 전이거나 방금 통과한 직후(거리 0)면 null */
+/** 진행 중인 바퀴. 게이트 확정 전이거나 방금 통과한 직후면 null */
 export function currentLap(state: LapState): Lap | null {
   if (state.gate === null) return null;
   const distanceM = state.cumDistM - state.lastCrossCumDistM;
-  if (distanceM <= 0) return null;
+  // splitPaceSec와 같은 바닥 — 통과 직후 보간 잔여값(예: 0.19m/0.12s)이 그대로
+  // 노출되어 다운스트림(UI·음성)이 별도 방어를 해야 하는 상황을 막는다
+  if (distanceM < 10) return null;
   return {
     index: state.laps.length + 1,
     durationSec: (state.runMs - state.lastCrossRunMs) / 1000,

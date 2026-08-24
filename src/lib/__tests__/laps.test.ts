@@ -150,6 +150,50 @@ describe('advanceLaps — 루프 발견과 카운트', () => {
     expect(state.laps.length).toBeLessThanOrEqual(3);
     expect(state.laps.length).toBeGreaterThanOrEqual(2);
   });
+
+  it('게이트 통과 구간의 GPS 끊김에도 바퀴를 놓치지 않는다 (세그먼트 기준 판정)', () => {
+    const pts = circlePoints({ laps: 4 });
+    const stepsPerLap = Math.round((2 * Math.PI * TRACK_RADIUS_M) / STEP_M);
+    const boundary = 2 * stepsPerLap; // 2→3바퀴 전환(재진입) 지점 — 게이트 최초 발견은 건너뜀
+    // half=5(10 스텝, 편측 25m)면 생존한 최근접 포인트가 게이트에서 현 스트레이트
+    // 코드 기준 ~30m(직선거리 ~29.7m)로 25m 반경 밖에 남는다 — 점 기준 판정이면
+    // 통과를 놓쳐 [374, 797, 399] 3바퀴로 병합됨을 사전에 구버전으로 확인했다.
+    const dropHalfWidth = 5;
+    const dropped = pts.filter(
+      (_, i) => i < boundary - dropHalfWidth || i > boundary + dropHalfWidth
+    );
+    const state = feed(dropped);
+    expect(state.laps).toHaveLength(4);
+    for (const lap of state.laps) {
+      expect(lap.distanceM).toBeGreaterThan(340);
+      expect(lap.distanceM).toBeLessThan(460);
+    }
+  });
+
+  it('200m 실내 트랙 3바퀴를 정확히 센다', () => {
+    const state = feed(circlePoints({ laps: 3, radiusM: 31.83 }));
+    expect(state.laps).toHaveLength(3);
+  });
+});
+
+describe('advanceLaps — 순수성', () => {
+  it('같은 입력으로 두 번 호출해도 결과가 같고, 원래 상태는 바뀌지 않는다', () => {
+    const s = feed(circlePoints({ laps: 1.5 }));
+    const sSnapshot = JSON.parse(JSON.stringify(s));
+    const p = at(TRACK_RADIUS_M + 3, 5, s.last!.timestamp + STEP_MS);
+
+    const r1 = advanceLaps(s, p, false);
+    const r2 = advanceLaps(s, p, false);
+
+    expect(r1).toEqual(r2);
+    expect(s).toEqual(sSnapshot);
+  });
+
+  it('INITIAL_LAP_STATE는 3바퀴 피드 후에도 변하지 않는다', () => {
+    const snapshot = JSON.parse(JSON.stringify(INITIAL_LAP_STATE));
+    feed(circlePoints({ laps: 3 }));
+    expect(INITIAL_LAP_STATE).toEqual(snapshot);
+  });
 });
 
 describe('currentLap', () => {
