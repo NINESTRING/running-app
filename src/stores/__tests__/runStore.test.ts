@@ -1,4 +1,5 @@
 import { elapsedMs, useRunStore } from '../runStore';
+import { INITIAL_LAP_STATE } from '../../lib/laps';
 
 const P1 = { latitude: 0, longitude: 0, altitude: null, timestamp: 1000 };
 const P2 = { latitude: 1, longitude: 0, altitude: null, timestamp: 2000 }; // P1에서 약 111,195m
@@ -274,5 +275,34 @@ describe('setWeather', () => {
     useRunStore.getState().start(2000);
     expect(useRunStore.getState().weatherCode).toBeNull();
     expect(useRunStore.getState().temperatureC).toBeNull();
+  });
+});
+
+describe('addPoint 랩 감지 통합', () => {
+  const pt = (latitude: number, timestamp: number) => ({
+    latitude,
+    longitude: 127,
+    altitude: null,
+    timestamp,
+  });
+
+  it('일시정지 경계를 넘는 포인트 쌍의 시간은 랩 상태에 가산되지 않는다', () => {
+    useRunStore.getState().start(0);
+    useRunStore.getState().addPoint(pt(37.5, 1000));
+    useRunStore.getState().addPoint(pt(37.5001, 4000));
+    useRunStore.getState().pause(5000);
+    useRunStore.getState().resume(65000);
+    useRunStore.getState().addPoint(pt(37.5002, 66000));
+    const { lapState } = useRunStore.getState();
+    // 1000→4000의 3초만 계상 — 4000→66000은 일시정지 경계라 0
+    expect(lapState.runMs).toBe(3000);
+    expect(lapState.cumDistM).toBeGreaterThan(20);
+  });
+
+  it('reset은 랩 상태를 초기화한다', () => {
+    useRunStore.getState().start(0);
+    useRunStore.getState().addPoint(pt(37.5, 1000));
+    useRunStore.getState().reset();
+    expect(useRunStore.getState().lapState).toEqual(INITIAL_LAP_STATE);
   });
 });

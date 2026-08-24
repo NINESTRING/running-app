@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { StepSample } from '../lib/cadence';
 import { haversineM } from '../lib/geo';
+import { advanceLaps, INITIAL_LAP_STATE, type LapState } from '../lib/laps';
 import type { RoutePoint } from '../types/run';
 
 export type RunStatus = 'idle' | 'running' | 'paused' | 'saving';
@@ -21,6 +22,7 @@ export interface RunState {
   lastStepReading: number; // pedometer 구독 누적치의 마지막 값 (델타 계산용)
   stepSamples: StepSample[]; // 최근 60초 — 라이브 SPM용
   segments: RunSegment[]; // 완료된 러닝 세그먼트 — iOS 백필용
+  lapState: LapState; // 자동 바퀴 감지 상태 — addPoint마다 전진
   weatherCode: number | null; // WMO weather code. null = 아직 조회 전·실패
   temperatureC: number | null; // °C
   start: (now: number) => void;
@@ -48,6 +50,7 @@ const initial = {
   lastStepReading: 0,
   stepSamples: [] as StepSample[],
   segments: [] as RunSegment[],
+  lapState: INITIAL_LAP_STATE,
   weatherCode: null as number | null,
   temperatureC: null as number | null,
 };
@@ -76,11 +79,23 @@ export const useRunStore = create<RunState>((set, get) => ({
   },
 
   addPoint: (p) => {
-    const { status, points, distanceM } = get();
+    const { status, points, distanceM, segments, lapState } = get();
     if (status !== 'running') return;
     const last = points[points.length - 1];
     const added = last ? haversineM(last, p) : 0;
-    set({ points: [...points, p], distanceM: distanceM + added });
+    // 일시정지 경계 판정 — partitionPoints의 그룹 경계와 같은 규칙.
+    // 일시정지 중 포인트는 위 status 가드가 버리므로 마지막 완료 세그먼트만 보면 된다.
+    const lastSeg = segments[segments.length - 1];
+    const pauseBoundary =
+      last !== undefined &&
+      lastSeg !== undefined &&
+      last.timestamp <= lastSeg.end &&
+      p.timestamp > lastSeg.end;
+    set({
+      points: [...points, p],
+      distanceM: distanceM + added,
+      lapState: advanceLaps(lapState, p, pauseBoundary),
+    });
   },
 
   beginStepTracking: () => set({ steps: 0, lastStepReading: 0 }),
