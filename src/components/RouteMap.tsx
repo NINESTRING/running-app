@@ -1,6 +1,6 @@
 import { useImperativeHandle, useRef, type Ref } from 'react';
 import { StyleSheet } from 'react-native';
-import MapView, { Polyline } from 'react-native-maps';
+import MapView, { Marker, Polyline } from 'react-native-maps';
 import { regionForRoute } from '../lib/geo';
 import type { RoutePoint } from '../types/run';
 
@@ -14,6 +14,8 @@ interface Props {
   /** true면 새 좌표가 들어올 때마다 마지막 지점을 따라간다 (라이브 추적용) */
   follow?: boolean;
   initialCoords?: { latitude: number; longitude: number };
+  /** 랩 게이트 좌표. 루프가 감지되면 마커로 표시 */
+  gate?: { latitude: number; longitude: number } | null;
   ref?: Ref<RouteMapHandle>;
 }
 
@@ -29,6 +31,7 @@ export function RouteMap({
   showsUserLocation = false,
   follow = false,
   initialCoords,
+  gate = null,
   ref,
 }: Props) {
   const mapRef = useRef<MapView>(null);
@@ -76,6 +79,14 @@ export function RouteMap({
           }))}
           strokeWidth={4}
           strokeColor="#3b82f6"
+        />
+      )}
+      {gate && (
+        <Marker
+          coordinate={gate}
+          title="랩 게이트"
+          pinColor="#3b82f6"
+          anchor={{ x: 0.5, y: 1 }}
         />
       )}
     </MapView>

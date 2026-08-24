@@ -8,6 +8,8 @@ interface Props {
   showsUserLocation?: boolean;
   follow?: boolean;
   initialCoords?: { latitude: number; longitude: number };
+  /** 랩 게이트 좌표. 루프가 감지되면 마커로 표시 */
+  gate?: { latitude: number; longitude: number } | null;
   ref?: Ref<RouteMapHandle>;
 }
 

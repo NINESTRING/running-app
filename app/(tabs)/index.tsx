@@ -29,6 +29,7 @@ import {
 } from '@/lib/countdown';
 import { formatDistance, formatDuration, formatPace, METERS_PER_MILE, paceSecPerUnit } from '@/lib/geo';
 import { goalDeltaM, goalDeltaStatus, goalSummary } from '@/lib/goal';
+import { currentLap } from '@/lib/laps';
 import { cn } from '@/lib/utils';
 import { countdownCueText, isVoiceGuideOn, voiceSummaryText } from '@/lib/voice';
 import {
@@ -177,6 +178,9 @@ export default function HomeScreen() {
     points[points.length - 1]?.timestamp,
     segmentStartedAt
   );
+  // 진행 중 바퀴의 라이브 랩타임 — 구간 페이스와 같은 이유로 벽시계 경과를 가산
+  const liveLap = currentLap(lapState);
+  const liveLapMs = ((liveLap?.durationSec ?? 0) + extraSec) * 1000;
 
   // 러닝 시작 시점 날씨를 백그라운드로 조회 — 실패해도 러닝 흐름에 영향 없음
   const fetchWeatherForRun = async () => {
@@ -304,6 +308,7 @@ export default function HomeScreen() {
     }
     stopStepCounting();
     const s = useRunStore.getState();
+    const lapCount = s.lapState.laps.length;
     const stoppedAt = Date.now();
     const durationSec = Math.round(elapsedMs(s, 0) / 1000);
     const firstPoint = s.points[0];
@@ -343,7 +348,7 @@ export default function HomeScreen() {
           unit,
           paceSecPerUnit: paceSecPerUnit(s.distanceM, summaryElapsedMs, unit),
           goalDistanceUnits,
-          lapCount: null,
+          lapCount: lapCount >= 1 ? lapCount : null,
         }),
       );
       setDialog({ type: 'saved' });
@@ -362,6 +367,7 @@ export default function HomeScreen() {
           follow
           ref={mapRef}
           initialCoords={initialCoords ?? undefined}
+          gate={lapState.gate}
         />
       )}
       {/* 상단 인셋은 (tabs)/_layout이 sceneStyle.paddingTop으로 이미 준다 — top-4면 노치 아래 */}
@@ -384,6 +390,11 @@ export default function HomeScreen() {
                   {`구간 ${liveSplits.completed.length + 1} · ${formatPace(
                     liveSplitPaceSec(liveSplits.current, splitDistanceM, extraSec)
                   )}`}
+                </Text>
+              )}
+              {lapState.gate !== null && (
+                <Text className="text-center text-lg text-muted-foreground">
+                  {`랩 ${lapState.laps.length + 1} · ${formatDuration(liveLapMs)}`}
                 </Text>
               )}
               {goalDelta !== null && <GoalDeltaLine deltaM={goalDelta} />}
