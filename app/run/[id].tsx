@@ -3,11 +3,13 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, View } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { ElevationChart } from '@/components/ElevationChart';
+import { LapsList } from '@/components/LapsList';
 import { RouteMap } from '@/components/RouteMap';
 import { SplitsList } from '@/components/SplitsList';
 import { avgCadenceSpm, formatCadence } from '@/lib/cadence';
 import { elevationGainM, elevationProfile } from '@/lib/elevation';
 import { formatDistance, formatDuration, formatPace, paceSecPerUnit } from '@/lib/geo';
+import { computeLaps } from '@/lib/laps';
 import { computeSplits, splitDistanceFor } from '@/lib/splits';
 import { weatherLabel } from '@/lib/weather';
 import { getRun } from '@/services/runs';
@@ -66,6 +68,10 @@ export default function RunDetailScreen() {
     : null;
   const gain = run.routePoints ? elevationGainM(run.routePoints) : null;
   const profile = run.routePoints ? elevationProfile(run.routePoints) : [];
+  // 바퀴는 저장된 경로에서 재계산 — 라이브 감지와 같은 코드라 결과가 일치하고,
+  // 스키마 변경 없이 기존 기록에도 소급 적용된다
+  const lapResult = run.routePoints ? computeLaps(run.routePoints) : null;
+  const laps = lapResult !== null && lapResult.laps.length >= 1 ? lapResult.laps : null;
 
   return (
     <ScrollView
@@ -73,7 +79,7 @@ export default function RunDetailScreen() {
       contentContainerStyle={{ paddingBottom: 32 }}
     >
       <View className="h-72">
-        <RouteMap points={points} />
+        <RouteMap points={points} gate={lapResult?.gate ?? null} />
       </View>
       <View className="gap-2 p-4">
         <Text className="text-base font-semibold">
@@ -88,6 +94,7 @@ export default function RunDetailScreen() {
           {formatPace(paceSecPerUnit(run.distanceM, run.durationSec * 1000, unit))}
           {avgCadence !== null && ` · ${formatCadence(avgCadence)} spm`}
           {gain !== null && ` · ↑ ${Math.round(gain)} m`}
+          {laps !== null && ` · ${laps.length}바퀴`}
           {run.weatherCode !== null &&
             run.temperatureC !== null &&
             ` · ${weatherLabel(run.weatherCode).emoji} ${Math.round(run.temperatureC)}°C`}
@@ -106,6 +113,7 @@ export default function RunDetailScreen() {
           unit={unit}
         />
       )}
+      {laps !== null && <LapsList laps={laps} />}
     </ScrollView>
   );
 }
