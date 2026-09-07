@@ -28,7 +28,7 @@ import {
   nextCountdown,
 } from '@/lib/countdown';
 import { formatDistance, formatDuration, formatPace, METERS_PER_MILE, paceSecPerUnit } from '@/lib/geo';
-import { goalDeltaM, goalDeltaStatus, goalSummary } from '@/lib/goal';
+import { goalDeltaDisplay, goalDeltaM, goalSummary } from '@/lib/goal';
 import { currentLap } from '@/lib/laps';
 import { cn } from '@/lib/utils';
 import { countdownCueText, isVoiceGuideOn, voiceSummaryText } from '@/lib/voice';
@@ -392,12 +392,14 @@ export default function HomeScreen() {
                   )}`}
                 </Text>
               )}
-              {lapState.gate !== null && (status === 'running' || status === 'paused') && (
-                <Text className="text-center text-lg text-muted-foreground">
-                  {`랩 ${lapState.laps.length + 1} · ${formatDuration(liveLapMs)}`}
-                </Text>
-              )}
-              {goalDelta !== null && <GoalDeltaLine deltaM={goalDelta} />}
+              <HeroRow
+                lap={
+                  lapState.gate !== null && (status === 'running' || status === 'paused')
+                    ? { count: lapState.laps.length + 1, elapsed: formatDuration(liveLapMs) }
+                    : null
+                }
+                goalDeltaM={goalDelta}
+              />
             </CardContent>
           </Card>
         </View>
@@ -663,16 +665,46 @@ function Metric({
   );
 }
 
-// 상단 카드에서만 쓰인다 — 뛰면서 읽어야 하므로 지표 다음으로 큰 글자를 준다
-function GoalDeltaLine({ deltaM }: { deltaM: number }) {
-  const status = goalDeltaStatus(deltaM);
-  if (status === 'onPace') {
-    return <Text className="text-center text-xl text-muted-foreground">목표 페이스 유지</Text>;
-  }
-  const m = Math.round(Math.abs(deltaM));
-  return status === 'behind' ? (
-    <Text className="text-center text-xl font-semibold text-destructive">{`▼ ${m}m 뒤쳐짐`}</Text>
-  ) : (
-    <Text className="text-center text-xl font-semibold text-green-600 dark:text-green-500">{`▲ ${m}m 앞섬`}</Text>
+// 상단 카드에서만 쓰인다 — 뛰면서 가장 먼저 읽는 정보라 지표(text-4xl)보다 한 단계 크게
+const HERO_VALUE = 'text-5xl font-bold leading-tight';
+const HERO_LABEL = 'text-base text-muted-foreground';
+
+function HeroRow({
+  lap,
+  goalDeltaM,
+}: {
+  lap: { count: number; elapsed: string } | null;
+  goalDeltaM: number | null;
+}) {
+  if (lap === null && goalDeltaM === null) return null;
+  const delta = goalDeltaM !== null ? goalDeltaDisplay(goalDeltaM) : null;
+  return (
+    <View className="flex-row">
+      {lap && (
+        <View className="flex-1 items-center">
+          <Text numberOfLines={1} className={HERO_VALUE}>
+            {lap.count}
+            <Text className="text-2xl font-bold">바퀴째</Text>
+          </Text>
+          <Text className={HERO_LABEL}>{`이번 랩 ${lap.elapsed}`}</Text>
+        </View>
+      )}
+      {delta && (
+        <View className="flex-1 items-center">
+          <Text
+            numberOfLines={1}
+            className={cn(
+              HERO_VALUE,
+              delta.status === 'behind' && 'text-destructive',
+              delta.status === 'ahead' && 'text-green-600 dark:text-green-500',
+              delta.status === 'onPace' && 'text-muted-foreground',
+            )}
+          >
+            {delta.value}
+          </Text>
+          <Text className={HERO_LABEL}>{delta.label}</Text>
+        </View>
+      )}
+    </View>
   );
 }

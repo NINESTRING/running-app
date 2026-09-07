@@ -4,6 +4,7 @@ import {
   clampPaceSec,
   DISTANCE_MAX_UNITS,
   DISTANCE_MIN_UNITS,
+  goalDeltaDisplay,
   goalDeltaM,
   goalDeltaStatus,
   goalSummary,
@@ -91,5 +92,19 @@ describe('goalSummary', () => {
 
   test('거리만 있으면 거리만(단위 반영)', () => {
     expect(goalSummary(null, 5, 'mi')).toBe('5.00mi');
+  });
+});
+
+describe('goalDeltaDisplay', () => {
+  test('뒤쳐지면 ▼ 접두와 "뒤쳐짐" 라벨', () => {
+    expect(goalDeltaDisplay(-120.4)).toEqual({ status: 'behind', value: '▼ 120m', label: '뒤쳐짐' });
+  });
+
+  test('앞서면 ▲ 접두와 "앞섬" 라벨', () => {
+    expect(goalDeltaDisplay(85.6)).toEqual({ status: 'ahead', value: '▲ 86m', label: '앞섬' });
+  });
+
+  test('데드밴드 안이면 유지', () => {
+    expect(goalDeltaDisplay(4)).toEqual({ status: 'onPace', value: '유지', label: '목표 페이스' });
   });
 });

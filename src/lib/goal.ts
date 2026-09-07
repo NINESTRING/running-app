@@ -36,6 +36,20 @@ export function goalDeltaStatus(deltaM: number): GoalDeltaStatus {
   return 'onPace';
 }
 
+/** 상단 카드 편차 셀에 표시할 값·라벨. 값은 큰 글자, 라벨은 작은 글자용 */
+export function goalDeltaDisplay(deltaM: number): {
+  status: GoalDeltaStatus;
+  value: string;
+  label: string;
+} {
+  const status = goalDeltaStatus(deltaM);
+  if (status === 'onPace') return { status, value: '유지', label: '목표 페이스' };
+  const m = Math.round(Math.abs(deltaM));
+  return status === 'behind'
+    ? { status, value: `▼ ${m}m`, label: '뒤쳐짐' }
+    : { status, value: `▲ ${m}m`, label: '앞섬' };
+}
+
 export function clampPaceSec(sec: number): number {
   return Math.min(PACE_MAX_SEC, Math.max(PACE_MIN_SEC, sec));
 }

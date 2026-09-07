@@ -19,11 +19,15 @@ interface Props {
   ref?: Ref<RouteMapHandle>;
 }
 
+// 라이브 추적 시 보이는 범위(위·경도 폭). 상단 지표 카드가 지도 위쪽을 덮으므로
+// 한 단계 넓게(약 2.2km) 잡아 주변 경로가 카드 아래로도 보이게 한다
+const LIVE_REGION_DELTA = 0.02;
+
 const DEFAULT_REGION = {
   latitude: 37.5663, // 서울시청
   longitude: 126.9779,
-  latitudeDelta: 0.01,
-  longitudeDelta: 0.01,
+  latitudeDelta: LIVE_REGION_DELTA,
+  longitudeDelta: LIVE_REGION_DELTA,
 };
 
 export function RouteMap({
@@ -43,13 +47,13 @@ export function RouteMap({
   const initialRegion =
     regionForRoute(points) ??
     (initialCoords
-      ? { ...initialCoords, latitudeDelta: 0.01, longitudeDelta: 0.01 }
+      ? { ...initialCoords, latitudeDelta: LIVE_REGION_DELTA, longitudeDelta: LIVE_REGION_DELTA }
       : DEFAULT_REGION);
 
   useImperativeHandle(ref, () => ({
     animateTo: (coord) =>
       mapRef.current?.animateToRegion(
-        { ...coord, latitudeDelta: 0.01, longitudeDelta: 0.01 },
+        { ...coord, latitudeDelta: LIVE_REGION_DELTA, longitudeDelta: LIVE_REGION_DELTA },
         500,
       ),
   }));
@@ -65,8 +69,8 @@ export function RouteMap({
           ? {
               latitude: last.latitude,
               longitude: last.longitude,
-              latitudeDelta: 0.01,
-              longitudeDelta: 0.01,
+              latitudeDelta: LIVE_REGION_DELTA,
+              longitudeDelta: LIVE_REGION_DELTA,
             }
           : undefined
       }
