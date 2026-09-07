@@ -23,6 +23,42 @@ npx expo run:ios --device --configuration Release
 
 ## 실기기 빌드 문제 해결
 
+### 프로비저닝 프로필 만료일 확인 · 미리 갱신
+
+무료 계정 프로필은 **발급일**로부터 7일이다. 빌드를 다시 한다고 7일이 새로 시작되지 않는다 —
+디스크에 프로필이 남아 있으면 그대로 재사용되고 만료일도 원래 날짜 그대로다.
+
+방금 빌드한 앱에 들어간 프로필의 만료일:
+
+```bash
+security cms -D -i ~/Library/Developer/Xcode/DerivedData/runningapp-*/Build/Products/Release-iphoneos/runningapp.app/embedded.mobileprovision \
+  | plutil -extract ExpirationDate raw -
+```
+
+디스크에 있는 프로필 전체의 이름·만료일 (파일명은 UUID라 이름으로 골라야 한다):
+
+```bash
+cd ~/Library/Developer/Xcode/UserData/Provisioning\ Profiles
+for f in *.mobileprovision; do
+  security cms -D -i "$f" > /tmp/p.plist
+  echo "$f $(/usr/libexec/PlistBuddy -c 'Print :Name' -c 'Print :ExpirationDate' /tmp/p.plist | tr '\n' ' ')"
+done
+```
+
+만료 전에 7일을 새로 확보하려면 **runningapp 프로필만** 지우고 다시 빌드한다
+(다른 앱 프로필까지 지우면 그쪽도 재발급해야 하므로 UUID를 확인하고 지울 것):
+
+```bash
+rm ~/Library/Developer/Xcode/UserData/Provisioning\ Profiles/<runningapp-UUID>.mobileprovision
+npx expo run:ios --device --configuration Release
+```
+
+빌드 후 위 첫 명령으로 만료일이 `오늘+7일`인지 확인한다. 날짜가 그대로면 아래 error 65 항목의
+xcodebuild 경로로 재발급한다.
+
+> 프로필 디렉터리는 Xcode 16부터 `~/Library/Developer/Xcode/UserData/Provisioning Profiles`다.
+> 그 이전 버전은 `~/Library/MobileDevice/Provisioning Profiles`.
+
 ### `No profiles for 'com.ninestring.runningapp' were found` (error 65)
 
 무료 Apple 계정이라 프로비저닝 프로필이 7일마다 만료되고, 만료되면 디스크에서 사라진다
