@@ -5,6 +5,7 @@
   "dependencies": {
     "@expo/ui": "~57.0.11",
     "@expo/vector-icons": "^15.1.1",
+    "@kingstinct/react-native-healthkit": "^14.1.0",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@rn-primitives/alert-dialog": "^1.5.2",
     "@rn-primitives/portal": "^1.5.3",
@@ -44,6 +45,7 @@
     "react-native-css-interop": "^0.2.6",
     "react-native-gesture-handler": "~2.32.0",
     "react-native-maps": "1.27.2",
+    "react-native-nitro-modules": "^0.37.1",
     "react-native-reanimated": "4.5.1",
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "~4.26.0",

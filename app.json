@@ -70,6 +70,14 @@
           "recordAudioAndroid": false
         }
       ],
+      [
+        "@kingstinct/react-native-healthkit",
+        {
+          "NSHealthShareUsageDescription": "건강 앱에 기록된 심박수를 러닝 기록에 표시하기 위해 읽습니다.",
+          "NSHealthUpdateUsageDescription": false,
+          "background": false
+        }
+      ],
       "expo-image"
     ],
     "experiments": {
