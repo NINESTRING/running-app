@@ -2,6 +2,7 @@ import { ScrollView, View } from 'react-native';
 
 import { AccountSection } from '@/components/AccountSection';
 import { AppInfoSection } from '@/components/AppInfoSection';
+import { HealthSection } from '@/components/HealthSection';
 import { Text } from '@/components/ui/text';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { VoiceGuideSection } from '@/components/VoiceGuideSection';
@@ -56,6 +57,7 @@ export default function SettingsScreen() {
         </ToggleGroup>
       </View>
       <VoiceGuideSection />
+      <HealthSection />
       <AppInfoSection />
     </ScrollView>
   );

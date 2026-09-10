@@ -13,6 +13,7 @@ describe('settingsStore', () => {
       theme: 'system',
       voiceDistanceUnits: null,
       voiceTimeMin: null,
+      healthHeartRateOn: false,
     });
   });
 
@@ -129,5 +130,26 @@ describe('settingsStore', () => {
     expect(useSettingsStore.getState().unit).toBe('mi');
     expect(useSettingsStore.getState().voiceDistanceUnits).toBeNull();
     expect(useSettingsStore.getState().voiceTimeMin).toBeNull();
+  });
+
+  test('건강 앱 심박 가져오기의 기본값은 false(끔)이다', () => {
+    expect(useSettingsStore.getInitialState().healthHeartRateOn).toBe(false);
+  });
+
+  test('setHealthHeartRateOn으로 켜고 끈다', () => {
+    useSettingsStore.getState().setHealthHeartRateOn(true);
+    expect(useSettingsStore.getState().healthHeartRateOn).toBe(true);
+    useSettingsStore.getState().setHealthHeartRateOn(false);
+    expect(useSettingsStore.getState().healthHeartRateOn).toBe(false);
+  });
+
+  test('healthHeartRateOn 키가 없는 구버전 저장본은 false로 복원된다', async () => {
+    await AsyncStorage.setItem(
+      'settings',
+      JSON.stringify({ state: { unit: 'mi', theme: 'dark' }, version: 0 }),
+    );
+    await useSettingsStore.persist.rehydrate();
+    expect(useSettingsStore.getState().healthHeartRateOn).toBe(false);
+    expect(useSettingsStore.getState().unit).toBe('mi');
   });
 });

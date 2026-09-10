@@ -15,11 +15,13 @@ interface SettingsState {
   voiceDistanceUnits: VoiceDistanceUnits | null; // null = 끔
   voiceTimeMin: VoiceTimeMin | null; // null = 끔
   voiceLapOn: boolean; // 바퀴 완주 음성 안내. 거리·시간 안내가 하나라도 켜져 있을 때만 발화
+  healthHeartRateOn: boolean; // 건강 앱(HealthKit) 심박 가져오기. 켜진 동안만 저장 시 조회·백필
   setUnit: (unit: 'km' | 'mi') => void;
   setTheme: (theme: ThemePreference) => void;
   setVoiceDistanceUnits: (v: VoiceDistanceUnits | null) => void;
   setVoiceTimeMin: (v: VoiceTimeMin | null) => void;
   setVoiceLapOn: (v: boolean) => void;
+  setHealthHeartRateOn: (v: boolean) => void;
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -30,15 +32,18 @@ export const useSettingsStore = create<SettingsState>()(
       voiceDistanceUnits: null,
       voiceTimeMin: null,
       voiceLapOn: true,
+      healthHeartRateOn: false,
       setUnit: (unit) => set({ unit }),
       setTheme: (theme) => set({ theme }),
       setVoiceDistanceUnits: (voiceDistanceUnits) => set({ voiceDistanceUnits }),
       setVoiceTimeMin: (voiceTimeMin) => set({ voiceTimeMin }),
       setVoiceLapOn: (voiceLapOn) => set({ voiceLapOn }),
+      setHealthHeartRateOn: (healthHeartRateOn) => set({ healthHeartRateOn }),
     }),
     {
       // 기존 저장본에는 voice* 키가 없다. persist가 초기 상태 위에 얕은 병합을 하므로
       // 두 필드는 null(끔)로 복원된다 — 버전 올림·마이그레이션 불필요.
+      // healthHeartRateOn도 같은 이유로 false(끔)로 복원된다.
       name: 'settings',
       version: 0,
       storage: createSafeStorage<SettingsState>(),
