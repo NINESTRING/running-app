@@ -5,7 +5,7 @@ React Native + Expo 기반 GPS 러닝 트래커.
 ## 스택
 
 Expo (TypeScript) · Expo Router · expo-location + expo-task-manager ·
-react-native-maps · Zustand · victory-native · Supabase (PostGIS) · EAS Build
+react-native-maps · Zustand · victory-native · Supabase (PostGIS) · EAS Build · @kingstinct/react-native-healthkit (iOS 심박)
 
 ## 시작하기
 
@@ -19,6 +19,7 @@ npx expo run:ios --device --configuration Release
 
 - 기본 UI 확인은 Expo Go로 가능.
 - **백그라운드 위치 추적은 dev build 필요**: `eas build --profile development --platform ios` (또는 android) 후 설치.
+- **건강 앱 심박 가져오기(HealthKit)도 dev build 필요**: 설정 탭 토글은 HealthKit이 있는 iOS 기기에서만 보인다. 의존성 추가 후 `npx expo run:ios`로 네이티브 리빌드.
 - Android에서 지도를 보려면 Google Maps API 키가 필요 (`app.json` → `android.config.googleMaps.apiKey`).
 
 ## 실기기 빌드 문제 해결

@@ -64,7 +64,8 @@ heartRate: HeartRateSummary | null; // null = 미조회·데이터 없음·구�
 ```
 
 - `src/services/runs.ts` — `saveRun()` insert에 세 컬럼 매핑, `rowToRunRecord()`에서
-  `parseHeartRateSamples(json)`로 검증 파싱(형식 이상이면 `heartRate: null`). 세 컬럼 중 하나라도
+  `parseHeartRateSamples(json)`로 검증 파싱(형식 이상이면 `heartRate: null`)
+  (`parseRoutePoints`와 같은 자리인 `src/services/runs.ts`에 둔다). 세 컬럼 중 하나라도
   `null`이면 전체를 `null`로 취급한다.
 - 신규 `updateRunHeartRate(id, summary): Promise<boolean>` — `updateRunLocationLabel`과 같은
   패턴, 실패 시 `false`.
@@ -105,9 +106,6 @@ export function summarizeHeartRate(samples: RawHeartRateSample[], startedAt: num
 
 /** 저장된 기록에서 활동 구간을 복원한다 — 각 route_points 그룹의 [첫 timestamp, 마지막 timestamp]. */
 export function activeRangesFromRoutePoints(groups: RoutePoint[][]): TimeRange[];
-
-/** DB jsonb → HeartRateSample[]. 형식 이상·빈 배열·비정상 값이면 null. */
-export function parseHeartRateSamples(json: unknown): HeartRateSample[] | null;
 
 /** 히스토리·상세 표시용 — maxHr 생략 시 "♥ 152", 지정 시 "♥ 152 · 최대 171" */
 export function formatHeartRate(avgHr: number, maxHr?: number): string;
@@ -160,12 +158,12 @@ export async function fetchRunHeartRate(params: {
 }): Promise<HeartRateSummary | null>;
 ```
 
-- 플랫폼 분기: `Platform.OS !== 'ios'`면 `isHeartRateSourceAvailable()`은 `false`,
-  `fetchRunHeartRate`는 즉시 `null`. 네이티브 모듈 import는 iOS 파일(`heartRate.ios.ts`)에만 두고
-  기본 파일(`heartRate.ts`)은 스텁으로 둬서 웹 번들이 nitro 모듈을 로드하지 않는다.
-  jest-expo 기본 프리셋은 iOS 플랫폼으로 `.ios.ts`를 해석하므로, 이 모듈을 import하는 테스트
-  (`heartRateBackfill.test.ts`)는 `jest.mock('@/services/heartRate', () => ({ ... }))`처럼 **팩토리
-  모킹**으로 실제 모듈 로드를 막는다(automock은 실제 파일을 require하므로 쓰지 않는다).
+- 플랫폼 분기: 라이브러리가 `healthkit.ios.ts`/`healthkit.ts`(비iOS 스텁) 분기를 내장하므로 서비스는
+  단일 파일 `src/services/heartRate.ts`로 두고 `Platform.OS !== 'ios'`면 `isHeartRateSourceAvailable()`은
+  `false`, `fetchRunHeartRate`는 즉시 `null`을 반환한다. jest(iOS 플랫폼)에서는 nitro 네이티브 모듈을
+  로드할 수 없으므로 `@kingstinct/react-native-healthkit`을 **팩토리 모킹**해 서비스를 유닛 테스트한다
+  (`services/__tests__/heartRate.test.ts`). `heartRateBackfill.test.ts`는 `@/services/heartRate`를 팩토리
+  모킹한다.
 - 조회: `queryQuantitySamples('HKQuantityTypeIdentifierHeartRate', { filter: { startDate, endDate }, unit: 'count/min', limit: 0(무제한), ascending: true })`. 라이브러리의 정확한 옵션 이름은 구현 시 v14 문서에서 확인한다.
 - 조회 결과를 `RawHeartRateSample`로 변환할 때 `sourceId`는 샘플의 `sourceRevision.source.bundleIdentifier`.
 
@@ -263,7 +261,8 @@ export async function backfillHeartRate(
 - `services/heartRateBackfill.test.ts`: 후보 판정(7일 경계), limit·취소·`onFilled`, 토글 꿈이면 no-op
   (`fetchRunHeartRate`·`updateRunHeartRate` 모킹).
 - `stores/settingsStore.test.ts`: 기본값 `false`, 토글.
-- 서비스의 HealthKit 호출 자체(`heartRate.ios.ts`)는 유닛 테스트하지 않고 실기기로 확인한다.
+- `services/heartRate.test.ts`: 라이브러리 팩토리 모킹 — 가용성 false·throw, 권한 요청 인자·실패,
+  구간 조회 인자(count/min·limit 0·ascending), 소스 매핑, Date/숫자 startDate, 빈 결과·throw·5초 타임아웃 → `null`.
 
 ## 실기기 확인 (네이티브 리빌드 필요)
 
