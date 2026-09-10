@@ -18,8 +18,17 @@ export function isHeartRateBackfillCandidate(run: RunRecord, now: number): boole
 /** 저장된 기록에서 조회 구간·활동 구간을 복원한다. */
 function queryWindow(run: RunRecord): { startedAt: number; endedAt: number; active: TimeRange[] } {
   const startedAt = Date.parse(run.startedAt);
-  const active = run.routePoints ? activeRangesFromRoutePoints(run.routePoints) : [];
-  if (active.length > 0) {
+  const ranges = run.routePoints ? activeRangesFromRoutePoints(run.routePoints) : [];
+  if (ranges.length > 0) {
+    // GPS(expo-location)는 5m 이동마다 포인트를 찍으므로, 출발 직후·정지 직전처럼 제자리에 서
+    // 있는 구간에는 포인트가 없다 — route_points로 복원한 활동 구간은 저장 시(runStore.segments,
+    // 벽시계 기준)보다 좁을 수 있다. durationSec(활동 총합의 근거)로 보정한다: 첫 구간 시작을
+    // startedAt까지 당기고, 커버되지 않은 시간만큼 마지막 구간 끝을 늘린다.
+    const active = ranges.map((r) => ({ ...r }));
+    active[0].start = Math.min(active[0].start, startedAt);
+    const covered = active.reduce((sum, r) => sum + (r.end - r.start), 0);
+    const uncovered = Math.max(0, run.durationSec * 1000 - covered);
+    active[active.length - 1].end += uncovered;
     return { startedAt, endedAt: active[active.length - 1].end, active };
   }
   // 경로 없는 기록 — 일시정지 정보가 없으니 전체를 한 구간으로 본다

@@ -220,6 +220,10 @@ export async function backfillHeartRate(
   러닝 직후 상세로 들어간 사용자가 새로고침 없이 값을 보게 하기 위함.
 - 7일 제한은 영원히 빈 쿼리를 반복하는 것을 막기 위한 것이다. 7일이 지나도 비어 있으면 그 기록은
   심박 없는 기록으로 남는다.
+- GPS는 5m 이동마다 포인트를 찍으므로 출발 직후·정지 직전처럼 제자리에 서 있던 구간에는 포인트가
+  없어 `activeRangesFromRoutePoints`로 복원한 활동 구간이 저장 시(`runStore.segments`)보다 좁아질
+  수 있다 — `queryWindow`는 첫 구간 시작을 `startedAt`까지 당기고, `durationSec`(활동 총합의
+  근거)로 부족한 시간만큼 마지막 구간 끝을 늘려 이를 보정한다.
 
 ## 표시
 
