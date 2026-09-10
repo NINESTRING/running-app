@@ -1,7 +1,10 @@
 import {
   activeRangesFromRoutePoints,
   filterActiveSamples,
+  formatHeartRate,
+  heartRateYDomain,
   HR_BUCKET_MS,
+  HR_CHART_MIN_SPAN_BPM,
   pickDominantSource,
   summarizeHeartRate,
   summarizeRunHeartRate,
@@ -142,5 +145,30 @@ describe('summarizeRunHeartRate', () => {
 
   it('필터 후 남는 샘플이 없으면 null', () => {
     expect(summarizeRunHeartRate([s(0, 300)], T0, [{ start: T0, end: T0 + 1000 }])).toBeNull();
+  });
+});
+
+describe('formatHeartRate', () => {
+  it('평균만: "♥ 152"', () => {
+    expect(formatHeartRate(152)).toBe('♥ 152');
+  });
+  it('최대 포함: "♥ 152 · 최대 171"', () => {
+    expect(formatHeartRate(152, 171)).toBe('♥ 152 · 최대 171');
+  });
+});
+
+describe('heartRateYDomain', () => {
+  it('[min-10, max+10]을 기본으로 한다', () => {
+    expect(heartRateYDomain([[0, 120], [10, 180]])).toEqual([110, 190]);
+  });
+
+  it('폭이 최소 폭(40) 미만이면 중앙 기준으로 확장한다', () => {
+    // 140~150 → 패딩 후 130~160(폭 30) → 중앙 145 ± 20
+    expect(heartRateYDomain([[0, 140], [10, 150]])).toEqual([125, 165]);
+    expect(HR_CHART_MIN_SPAN_BPM).toBe(40);
+  });
+
+  it('빈 배열은 [0, minSpan]', () => {
+    expect(heartRateYDomain([])).toEqual([0, 40]);
   });
 });

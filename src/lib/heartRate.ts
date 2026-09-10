@@ -93,3 +93,33 @@ export function summarizeRunHeartRate(
 ): HeartRateSummary | null {
   return summarizeHeartRate(pickDominantSource(filterActiveSamples(raw, active)), startedAt);
 }
+
+/** 히스토리·상세 표시용. maxHr 생략 시 "♥ 152", 지정 시 "♥ 152 · 최대 171". */
+export function formatHeartRate(avgHr: number, maxHr?: number): string {
+  return maxHr === undefined ? `♥ ${avgHr}` : `♥ ${avgHr} · 최대 ${maxHr}`;
+}
+
+// y축 최소 표시 폭 — 평탄한 심박(예: 조깅 140~150)이 차트를 가득 채워 요동치듯 보이는 것을 막는다
+export const HR_CHART_MIN_SPAN_BPM = 40;
+const HR_CHART_PAD_BPM = 10;
+
+/** 차트 y 도메인 — [min-10, max+10]을 최소 폭 minSpan으로 확장 (elevationYDomain과 같은 발상). */
+export function heartRateYDomain(
+  samples: HeartRateSample[],
+  minSpan: number = HR_CHART_MIN_SPAN_BPM
+): [number, number] {
+  if (samples.length === 0) return [0, minSpan];
+  let lo = Infinity;
+  let hi = -Infinity;
+  for (const [, bpm] of samples) {
+    if (bpm < lo) lo = bpm;
+    if (bpm > hi) hi = bpm;
+  }
+  lo -= HR_CHART_PAD_BPM;
+  hi += HR_CHART_PAD_BPM;
+  if (hi - lo < minSpan) {
+    const center = (lo + hi) / 2;
+    return [center - minSpan / 2, center + minSpan / 2];
+  }
+  return [lo, hi];
+}
