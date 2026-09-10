@@ -255,9 +255,10 @@ export async function backfillHeartRate(
 
 - `lib/heartRate.test.ts`: 활동 구간 필터(경계 포함·일시정지 제거·bpm 범위), 소스 선택(최다·동수),
   버킷 평균·경과초 계산·avg/max가 원본 기준인지, 빈 입력 `null`, `activeRangesFromRoutePoints`,
-  `parseHeartRateSamples` 정상·형식 이상·빈 배열, `heartRateYDomain` 최소 폭.
+  `heartRateYDomain` 최소 폭.
 - `services/runs.test.ts`: `rowToRunRecord` 세 컬럼 매핑, 하나라도 `null`이면 전체 `null`,
-  `saveRun` insert 페이로드, `updateRunHeartRate` 성공·실패.
+  `saveRun` insert 페이로드, `updateRunHeartRate` 성공·실패, `parseHeartRateSamples` 정상·형식
+  이상·빈 배열·음수 경과초.
 - `services/heartRateBackfill.test.ts`: 후보 판정(7일 경계), limit·취소·`onFilled`, 토글 꿈이면 no-op
   (`fetchRunHeartRate`·`updateRunHeartRate` 모킹).
 - `stores/settingsStore.test.ts`: 기본값 `false`, 토글.
