@@ -34,11 +34,14 @@ export type Database = {
       }
       runs: {
         Row: {
+          avg_hr: number | null
           created_at: string
           distance_m: number
           duration_sec: number
+          heart_rate_samples: Json | null
           id: string
           location_label: string | null
+          max_hr: number | null
           route: unknown
           route_points: Json | null
           started_at: string
@@ -48,11 +51,14 @@ export type Database = {
           weather_code: number | null
         }
         Insert: {
+          avg_hr?: number | null
           created_at?: string
           distance_m: number
           duration_sec: number
+          heart_rate_samples?: Json | null
           id?: string
           location_label?: string | null
+          max_hr?: number | null
           route?: unknown
           route_points?: Json | null
           started_at: string
@@ -62,11 +68,14 @@ export type Database = {
           weather_code?: number | null
         }
         Update: {
+          avg_hr?: number | null
           created_at?: string
           distance_m?: number
           duration_sec?: number
+          heart_rate_samples?: Json | null
           id?: string
           location_label?: string | null
+          max_hr?: number | null
           route?: unknown
           route_points?: Json | null
           started_at?: string
@@ -81,11 +90,14 @@ export type Database = {
     Views: {
       runs_with_geojson: {
         Row: {
+          avg_hr: number | null
           created_at: string | null
           distance_m: number | null
           duration_sec: number | null
+          heart_rate_samples: Json | null
           id: string | null
           location_label: string | null
+          max_hr: number | null
           route_geojson: string | null
           route_points: Json | null
           started_at: string | null

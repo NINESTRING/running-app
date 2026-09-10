@@ -11,6 +11,7 @@ function run(partial: Partial<RunRecord> & Pick<RunRecord, 'id' | 'startedAt'>):
     weatherCode: null,
     temperatureC: null,
     locationLabel: null,
+    heartRate: null,
   };
   return { ...defaults, ...partial } as RunRecord;
 }

@@ -1,4 +1,10 @@
-import { parseRoutePoints, pointsToEwkt, rowToRunRecord, segmentsToJson } from '../runs';
+import {
+  parseHeartRateSamples,
+  parseRoutePoints,
+  pointsToEwkt,
+  rowToRunRecord,
+  segmentsToJson,
+} from '../runs';
 
 describe('segmentsToJson', () => {
   const p = (t: number, alt: number | null = null) => ({
@@ -80,6 +86,9 @@ describe('rowToRunRecord', () => {
     weather_code: null as number | null,
     temperature_c: null as number | null,
     location_label: null as string | null,
+    heart_rate_samples: null,
+    avg_hr: null as number | null,
+    max_hr: null as number | null,
     created_at: '2026-08-03T01:10:00Z',
   };
 
@@ -155,5 +164,51 @@ describe('rowToRunRecord', () => {
     const rec = rowToRunRecord(baseRow);
     expect(rec).not.toBeNull();
     expect(rec?.locationLabel).toBeNull();
+  });
+
+  it('heart_rate_samples·avg_hr·max_hr를 heartRate로 매핑한다', () => {
+    const rec = rowToRunRecord({
+      ...baseRow,
+      heart_rate_samples: [[0, 120], [10, 131]],
+      avg_hr: 126,
+      max_hr: 133,
+    });
+    expect(rec?.heartRate).toEqual({
+      samples: [[0, 120], [10, 131]],
+      avgHr: 126,
+      maxHr: 133,
+    });
+  });
+
+  it('심박 컬럼이 전부 null이면 heartRate는 null (구버전·미조회 기록)', () => {
+    const rec = rowToRunRecord(baseRow);
+    expect(rec).not.toBeNull();
+    expect(rec?.heartRate).toBeNull();
+  });
+
+  it('심박 컬럼 중 하나라도 null이거나 samples 형식이 어긋나면 heartRate는 null (레코드는 유지)', () => {
+    expect(
+      rowToRunRecord({ ...baseRow, heart_rate_samples: [[0, 120]], avg_hr: 120, max_hr: null })
+        ?.heartRate
+    ).toBeNull();
+    const broken = rowToRunRecord({ ...baseRow, heart_rate_samples: 'x', avg_hr: 120, max_hr: 120 });
+    expect(broken).not.toBeNull();
+    expect(broken?.heartRate).toBeNull();
+  });
+});
+
+describe('parseHeartRateSamples', () => {
+  it('[경과초, bpm] 튜플 배열을 그대로 돌려준다', () => {
+    expect(parseHeartRateSamples([[0, 120], [10, 131.5]])).toEqual([[0, 120], [10, 131.5]]);
+  });
+
+  it('형식이 어긋나면 null', () => {
+    expect(parseHeartRateSamples(null)).toBeNull();
+    expect(parseHeartRateSamples('x')).toBeNull();
+    expect(parseHeartRateSamples([])).toBeNull(); // 빈 배열
+    expect(parseHeartRateSamples([[0]])).toBeNull(); // 튜플 길이 2 아님
+    expect(parseHeartRateSamples([['a', 120]])).toBeNull(); // 경과초가 숫자 아님
+    expect(parseHeartRateSamples([[0, NaN]])).toBeNull(); // 유한수 아님
+    expect(parseHeartRateSamples([[-1, 120]])).toBeNull(); // 음수 경과초
   });
 });

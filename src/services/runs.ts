@@ -1,5 +1,5 @@
 import type { Tables } from '../types/database.types';
-import type { RoutePoint, RunRecord } from '../types/run';
+import type { HeartRateSample, HeartRateSummary, RoutePoint, RunRecord } from '../types/run';
 import { partitionPoints, type TimeRange } from '../lib/splits';
 import { supabase } from './supabase';
 
@@ -13,6 +13,7 @@ export interface FinishedRun {
   weatherCode: number | null; // 러닝 시작 시점 날씨 (시작 시 조회 실패 시 종료 시점 값). WMO weather code. null = 조회 실패
   temperatureC: number | null; // 러닝 시작 시점 기온 (시작 시 조회 실패 시 종료 시점 값). °C
   locationLabel: string | null; // 시작 지점 행정구역 라벨. null = 조회 실패·경로 없음
+  heartRate: HeartRateSummary | null; // 건강 앱 러닝 구간 심박. null = 토글 꿈·데이터 없음·조회 실패
 }
 
 // [t, lat, lng, alt] 튜플의 세그먼트별 배열 (route_points JSONB 포맷)
@@ -66,6 +67,36 @@ export function parseRoutePoints(json: unknown): RoutePoint[][] | null {
   return groups;
 }
 
+/** DB jsonb → HeartRateSample[]. 형식 이상·빈 배열·비유한수·음수 경과초면 null. */
+export function parseHeartRateSamples(json: unknown): HeartRateSample[] | null {
+  if (!Array.isArray(json) || json.length === 0) return null;
+  const out: HeartRateSample[] = [];
+  for (const t of json) {
+    if (!Array.isArray(t) || t.length !== 2) return null;
+    const [sec, bpm] = t;
+    if (
+      typeof sec !== 'number' ||
+      typeof bpm !== 'number' ||
+      !Number.isFinite(sec) ||
+      !Number.isFinite(bpm) ||
+      sec < 0
+    ) {
+      return null;
+    }
+    out.push([sec, bpm]);
+  }
+  return out;
+}
+
+/** 세 컬럼이 모두 있고 samples가 유효할 때만 요약을 만든다 — 하나라도 어긋나면 null. */
+function rowToHeartRate(row: RunRow): HeartRateSummary | null {
+  if (row.avg_hr === null || row.avg_hr === undefined) return null;
+  if (row.max_hr === null || row.max_hr === undefined) return null;
+  const samples = parseHeartRateSamples(row.heart_rate_samples);
+  if (samples === null) return null;
+  return { samples, avgHr: row.avg_hr, maxHr: row.max_hr };
+}
+
 export function pointsToEwkt(points: RoutePoint[]): string | null {
   if (points.length < 2) return null;
   const coords = points.map((p) => `${p.longitude} ${p.latitude}`).join(',');
@@ -96,6 +127,7 @@ export function rowToRunRecord(row: RunRow): RunRecord | null {
     weatherCode: row.weather_code ?? null,
     temperatureC: row.temperature_c ?? null,
     locationLabel: row.location_label ?? null,
+    heartRate: rowToHeartRate(row),
   };
 }
 
@@ -116,6 +148,9 @@ export async function saveRun(
       weather_code: run.weatherCode,
       temperature_c: run.temperatureC,
       location_label: run.locationLabel,
+      heart_rate_samples: run.heartRate?.samples ?? null,
+      avg_hr: run.heartRate?.avgHr ?? null,
+      max_hr: run.heartRate?.maxHr ?? null,
     });
     return error ? { ok: false, error: error.message } : { ok: true };
   } catch (e) {
@@ -191,6 +226,23 @@ export async function updateRunLocationLabel(
     const { error } = await supabase
       .from('runs')
       .update({ location_label: label })
+      .eq('id', id);
+    return !error;
+  } catch {
+    return false;
+  }
+}
+
+/** lazy 백필용 — 심박 세 컬럼만 갱신. 실패 시 false (다음 기회에 재시도). */
+export async function updateRunHeartRate(
+  id: string,
+  hr: HeartRateSummary
+): Promise<boolean> {
+  if (!supabase) return false;
+  try {
+    const { error } = await supabase
+      .from('runs')
+      .update({ heart_rate_samples: hr.samples, avg_hr: hr.avgHr, max_hr: hr.maxHr })
       .eq('id', id);
     return !error;
   } catch {

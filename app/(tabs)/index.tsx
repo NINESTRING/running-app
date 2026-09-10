@@ -335,6 +335,7 @@ export default function HomeScreen() {
       weatherCode: weather.weatherCode,
       temperatureC: weather.temperatureC,
       locationLabel,
+      heartRate: null, // Task 6에서 실제 조회값으로 교체
     });
     if (result.ok) {
       useRunStore.getState().reset();
