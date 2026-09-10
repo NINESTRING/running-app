@@ -47,10 +47,13 @@ export default function RunDetailScreen() {
     };
   }, [id]);
 
-  // 랩 재계산은 O(포인트×후보점)라 렌더마다 다시 돌리기엔 무겁다 — 기록이 바뀔 때만 계산
+  // 랩 재계산은 O(포인트×후보점)라 렌더마다 다시 돌리기엔 무겁다 — 기록이 바뀔 때만 계산.
+  // 심박 백필의 setRun(prev => ({...prev, heartRate}))은 routePoints는 그대로 둔 채 새 객체를
+  // 만들 뿐이므로, 의존성을 run 전체가 아닌 routePoints로 좁혀 불필요한 재계산을 막는다.
+  const routePoints = run?.routePoints ?? null;
   const lapResult = useMemo(
-    () => (run && run.routePoints ? computeLaps(run.routePoints) : null),
-    [run],
+    () => (routePoints ? computeLaps(routePoints) : null),
+    [routePoints],
   );
 
   if (run === undefined) {

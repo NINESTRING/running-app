@@ -51,7 +51,8 @@ export function HealthSection() {
       </View>
       <Text className="text-sm text-muted-foreground">
         미밴드·애플워치 등이 건강 앱에 기록한 심박을 러닝 기록에 붙입니다. 러닝 저장 뒤 동기화가
-        끝나면 기록에 표시됩니다.
+        끝나면 기록에 표시됩니다. 동기화 후에도 심박이 보이지 않으면 설정 &gt; 건강 &gt; 데이터
+        접근 및 기기에서 접근을 확인해 주세요.
       </Text>
       {hint !== null && <Text className="text-sm text-destructive">{hint}</Text>}
     </View>

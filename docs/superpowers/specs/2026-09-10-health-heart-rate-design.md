@@ -71,7 +71,8 @@ heartRate: HeartRateSummary | null; // null = 미조회·데이터 없음·구�
   패턴, 실패 시 `false`.
 
 `elapsedSec`는 **러닝 시작(`started_at`) 기준 벽시계 경과초**다. 일시정지 구간 샘플은 제외하지만
-경과초를 압축하지는 않는다(일시정지 구간은 그래프에서 빈 구간으로 보인다).
+경과초를 압축하지는 않는다(x축 위치를 압축하지 않으므로 `ElevationChart`와 동일하게 일시정지
+구간에서도 선이 그대로 이어져 보인다).
 
 ## 순수 계산 (신규 `src/lib/heartRate.ts`)
 
@@ -174,7 +175,8 @@ export async function fetchRunHeartRate(params: {
 - 신규 `src/components/HealthSection.tsx`, 설정 탭에서 `VoiceGuideSection` 아래에 배치.
   - `isHeartRateSourceAvailable()`이 `false`면 `null` 렌더(섹션 자체를 숨김).
   - 제목 "건강 앱 연동", 스위치 라벨 "심박 가져오기", 설명 "미밴드·애플워치 등이 건강 앱에 기록한
-    심박을 러닝 기록에 붙입니다. 러닝 저장 뒤 동기화가 끝나면 기록에 표시됩니다."
+    심박을 러닝 기록에 붙입니다. 러닝 저장 뒤 동기화가 끝나면 기록에 표시됩니다. 동기화 후에도
+    심박이 보이지 않으면 설정 > 건강 > 데이터 접근 및 기기에서 접근을 확인해 주세요."
   - 켤 때: `requestHeartRateAccess()` → `true`면 `setHealthHeartRateOn(true)`. `false`(오류)면
     끔 상태 유지 + 안내 문구 표시 "건강 앱 접근을 허용하지 못했습니다. 설정 > 건강 > 데이터 접근 및
     기기에서 허용해 주세요."
@@ -251,7 +253,7 @@ export async function backfillHeartRate(
 | 여러 소스 혼재 | 샘플 수 최다 소스만 사용 |
 | bpm 30~250 밖 샘플 | 제거. 전부 제거되면 `null` |
 | 타임아웃(5초)·오류 | `null`. 저장은 계속 진행 |
-| 일시정지 구간 샘플 | 제거. 경과초는 압축하지 않아 그래프에 빈 구간으로 보임 |
+| 일시정지 구간 샘플 | 제거. 경과초는 압축하지 않아 x축 위치가 그대로라 일시정지 구간에서도 선이 이어짐(`ElevationChart`와 동일) |
 | 저장된 jsonb 형식 이상 | `heartRate: null`로 파싱, 표시 생략(백필 후보에서도 7일 이내면 다시 조회해 덮어씀) |
 | 과거 기록(구버전) | 토글 켠 뒤 7일 이내 기록만 백필, 나머지는 표시 생략 |
 
