@@ -3,15 +3,18 @@ import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, ScrollView, View } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { ElevationChart } from '@/components/ElevationChart';
+import { HeartRateChart } from '@/components/HeartRateChart';
 import { LapsList } from '@/components/LapsList';
 import { RouteMap } from '@/components/RouteMap';
 import { SplitsList } from '@/components/SplitsList';
 import { avgCadenceSpm, formatCadence } from '@/lib/cadence';
 import { elevationGainM, elevationProfile } from '@/lib/elevation';
 import { formatDistance, formatDuration, formatPace, paceSecPerUnit } from '@/lib/geo';
+import { formatHeartRate } from '@/lib/heartRate';
 import { computeLaps } from '@/lib/laps';
 import { computeSplits, splitDistanceFor } from '@/lib/splits';
 import { weatherLabel } from '@/lib/weather';
+import { backfillHeartRate } from '@/services/heartRateBackfill';
 import { getRun } from '@/services/runs';
 import { useSettingsStore } from '@/stores/settingsStore';
 import type { RoutePoint, RunRecord } from '@/types/run';
@@ -26,7 +29,17 @@ export default function RunDetailScreen() {
     let cancelled = false;
     if (id) {
       getRun(id).then((r) => {
-        if (!cancelled) setRun(r);
+        if (cancelled) return;
+        setRun(r);
+        // 러닝 직후 상세로 들어온 사용자가 새로고침 없이 심박을 보도록 이 기록 1건만 백필한다
+        if (r) {
+          void backfillHeartRate([r], {
+            limit: 1,
+            isCancelled: () => cancelled,
+            onFilled: (_id, heartRate) =>
+              setRun((prev) => (prev ? { ...prev, heartRate } : prev)),
+          });
+        }
       });
     }
     return () => {
@@ -98,6 +111,8 @@ export default function RunDetailScreen() {
           {avgCadence !== null && ` · ${formatCadence(avgCadence)} spm`}
           {gain !== null && ` · ↑ ${Math.round(gain)} m`}
           {laps !== null && ` · ${laps.length}바퀴`}
+          {run.heartRate !== null &&
+            ` · ${formatHeartRate(run.heartRate.avgHr, run.heartRate.maxHr)}`}
           {run.weatherCode !== null &&
             run.temperatureC !== null &&
             ` · ${weatherLabel(run.weatherCode).emoji} ${Math.round(run.temperatureC)}°C`}
@@ -106,6 +121,11 @@ export default function RunDetailScreen() {
       {profile.length >= 2 && (
         <View className="h-40 px-4 pb-2">
           <ElevationChart profile={profile} />
+        </View>
+      )}
+      {run.heartRate !== null && run.heartRate.samples.length >= 2 && (
+        <View className="h-40 px-4 pb-2">
+          <HeartRateChart samples={run.heartRate.samples} />
         </View>
       )}
       {splits && (

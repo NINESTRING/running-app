@@ -20,10 +20,12 @@ import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { formatDistance, formatDuration } from '@/lib/geo';
+import { formatHeartRate } from '@/lib/heartRate';
 import { formatRunDay, groupRunsByMonth, startCoords, timeOfDay } from '@/lib/history';
 import { personalRecords } from '@/lib/records';
 import { weatherLabel } from '@/lib/weather';
 import { fetchLocationLabel } from '@/services/geocoding';
+import { backfillHeartRate, HR_BACKFILL_LIMIT_PER_FOCUS } from '@/services/heartRateBackfill';
 import { deleteRun, listRuns, updateRunLocationLabel } from '@/services/runs';
 import { supabase } from '@/services/supabase';
 import { useSettingsStore } from '@/stores/settingsStore';
@@ -61,6 +63,13 @@ export default function HistoryScreen() {
         const visible = r.filter((x) => !deletedIdsRef.current.has(x.id));
         setRuns(visible);
         void backfillLocationLabels(visible, () => cancelled, setRuns);
+        // 건강 앱 심박 백필 — 라벨 백필과 독립적으로 병렬 진행 (서로 다른 행을 갱신하므로 충돌 없음)
+        void backfillHeartRate(visible, {
+          limit: HR_BACKFILL_LIMIT_PER_FOCUS,
+          isCancelled: () => cancelled,
+          onFilled: (id, heartRate) =>
+            setRuns((prev) => (prev ? prev.map((x) => (x.id === id ? { ...x, heartRate } : x)) : prev)),
+        });
       });
       return () => {
         cancelled = true;
@@ -185,6 +194,7 @@ export default function HistoryScreen() {
             <Text className="text-muted-foreground">
               {formatDistance(item.distanceM, unit)}{unit} ·{' '}
               {formatDuration(item.durationSec * 1000)}
+              {item.heartRate !== null && ` · ${formatHeartRate(item.heartRate.avgHr)}`}
               {item.weatherCode !== null &&
                 item.temperatureC !== null &&
                 ` · ${weatherLabel(item.weatherCode).emoji} ${Math.round(item.temperatureC)}°`}
